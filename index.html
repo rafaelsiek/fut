@@ -44,6 +44,12 @@
   #recheck { color:var(--ink); background:rgba(143,174,147,.16); border:1px solid rgba(143,174,147,.4); }
   #enter { color:#08230f; background:var(--bra); }
   #enter:disabled { background:var(--muted); cursor:default; opacity:.55; }
+  #ialevel { display:flex; align-items:center; gap:6px; margin-top:10px; flex-wrap:wrap; }
+  #ialevel span { font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+  .lvl { font-size:11.5px; padding:7px 12px; color:var(--muted);
+    background:transparent; border:1px solid rgba(143,174,147,.35); }
+  .lvl.on { color:#08230f; background:var(--arg); border-color:var(--arg); }
+  .lvl[data-l="impossivel"].on { background:var(--bad); border-color:var(--bad); color:#fff; }
 </style>
 
 <div id="hud">
@@ -64,6 +70,13 @@
     <div id="buttons">
       <button id="recheck">Re-verificar VR</button>
       <button id="enter" disabled>Entrar em VR</button>
+    </div>
+    <div id="ialevel">
+      <span>IA:</span>
+      <button class="lvl" data-l="facil">Fácil</button>
+      <button class="lvl on" data-l="medio">Médio</button>
+      <button class="lvl" data-l="dificil">Difícil</button>
+      <button class="lvl" data-l="impossivel">Impossível</button>
     </div>
   </div>
 </div>
@@ -428,8 +441,73 @@ function releaseAim(){
 
 // ---------- IA (Argentina) ----------
 let aiTimer=0;
+let difficulty="medio";
+const DIFFICULTY={
+  facil:      {noise:0.50, powMin:0.9, powMax:1.6, smart:false, randomPick:0.4},
+  medio:      {noise:0.22, powMin:1.4, powMax:2.3, smart:false, randomPick:0},
+  dificil:    {noise:0.06, powMin:1.8, powMax:2.6, smart:true,  randomPick:0},
+  impossivel: {sim:true},
+};
+document.querySelectorAll(".lvl").forEach(b=>{
+  b.addEventListener("click",()=>{
+    difficulty=b.dataset.l;
+    document.querySelectorAll(".lvl").forEach(x=>x.classList.toggle("on",x===b));
+  });
+});
+
+// distância de um ponto p ao segmento a->b (pra detectar bloqueio na linha do chute)
+function segDist(p,a,b){
+  const abx=b.x-a.x, aby=b.y-a.y;
+  const t=Math.max(0,Math.min(1,((p.x-a.x)*abx+(p.y-a.y)*aby)/(abx*abx+aby*aby||1)));
+  return Math.hypot(p.x-(a.x+abx*t),p.y-(a.y+aby*t));
+}
+function pathBlocked(shooter,target){
+  for(const o of discs){
+    if(o===shooter||o===ball) continue;
+    if(segDist(o.pos,shooter.pos,target)<o.radius+shooter.radius*0.9) return true;
+  }
+  return false;
+}
+
+// roda a jogada no motor de física de verdade e devolve o resultado (modo Impossível)
+function simulateShot(shooter,dir,power){
+  const snap=discs.map(d=>({p:d.pos.clone(),v:d.vel.clone()}));
+  shooter.vel.copy(dir.clone().multiplyScalar(power));
+  let goalFor=false, goalAgainst=false, steps=0;
+  for(let t=0;t<320;t++){
+    physStep(0.008); steps=t;
+    const g=checkGoal();
+    if(g==="arg"){ goalFor=true; break; }
+    if(g==="bra"){ goalAgainst=true; break; }
+    if(discs.every(d=>d.vel.lengthSq()<STOP_EPS*STOP_EPS)) break;
+  }
+  const ballZ=ball.pos.y;
+  discs.forEach((d,i)=>{ d.pos.copy(snap[i].p); d.vel.copy(snap[i].v); });
+  return {goalFor,goalAgainst,steps,ballZ};
+}
+function aiShootSimulated(){
+  let best=null;
+  for(const d of aiDiscs){
+    const base=Math.atan2(ball.pos.x-d.pos.x,ball.pos.y-d.pos.y);
+    for(let a=-8;a<=8;a++){
+      const ang=base+a*0.07;
+      const dir=new THREE.Vector2(Math.sin(ang),Math.cos(ang));
+      for(const power of [1.7,2.6]){
+        const r=simulateShot(d,dir,power);
+        const sc=r.goalFor?(10000-r.steps):(r.goalAgainst?-10000:r.ballZ*100);
+        if(!best||sc>best.sc) best={d,dir:dir.clone(),power,sc};
+      }
+    }
+  }
+  best.d.vel.copy(best.dir.multiplyScalar(best.power));
+  state="sim"; nextTurn="player";
+  setTurnUI(best.sc>5000?"Argentina jogou… cuidado.":"Argentina jogou…");
+}
+
 function aiShoot(){
-  // escolhe o botão com melhor linha pra empurrar a bola rumo ao gol do Brasil (z=+HALF_L)
+  const cfg=DIFFICULTY[difficulty];
+  if(cfg.sim){ aiShootSimulated(); return; }
+
   const goalPos=new THREE.Vector2(0,GOAL_LINE);
   let best=null,bestScore=-1e9;
   for(const d of aiDiscs){
@@ -437,19 +515,26 @@ function aiShoot(){
     const distBall=toBall.length();
     const ballToGoal=new THREE.Vector2().subVectors(goalPos,ball.pos).normalize();
     const align=toBall.clone().normalize().dot(ballToGoal); // 1 = perfeitamente atrás da bola
-    const s=align*2-distBall;
+    let s=align*2-distBall;
+    if(cfg.smart&&pathBlocked(d,ball.pos)) s-=3;  // difícil: evita linhas de chute bloqueadas
     if(s>bestScore){bestScore=s;best=d;}
   }
+  if(cfg.randomPick&&Math.random()<cfg.randomPick)
+    best=aiDiscs[Math.floor(Math.random()*aiDiscs.length)]; // fácil: às vezes joga "qualquer um"
   if(!best){ endSimTurn(); return; }
   // ponto de contato: lado da bola oposto ao gol
   const ballToGoal=new THREE.Vector2().subVectors(goalPos,ball.pos).normalize();
   const contact=ball.pos.clone().addScaledVector(ballToGoal,-(BALL_R+best.radius)*0.9);
   const dir=new THREE.Vector2().subVectors(contact,best.pos).normalize();
-  // imprecisão humana
-  const ang=(Math.random()-0.5)*0.22;
+  // imprecisão conforme o nível
+  const ang=(Math.random()-0.5)*2*cfg.noise;
   const cos=Math.cos(ang),sin=Math.sin(ang);
   dir.set(dir.x*cos-dir.y*sin,dir.x*sin+dir.y*cos);
-  const power=1.4+Math.random()*0.9;
+  let power=cfg.powMin+Math.random()*(cfg.powMax-cfg.powMin);
+  if(cfg.smart){ // difícil: força calibrada pela distância total da jogada
+    const dist=best.pos.distanceTo(ball.pos)+ball.pos.distanceTo(goalPos);
+    power=Math.min(MAX_POWER,1.1+dist*1.1);
+  }
   best.vel.copy(dir.multiplyScalar(Math.min(power,MAX_POWER)));
   state="sim"; nextTurn="player";
   setTurnUI("Argentina jogou…");
