@@ -1,11 +1,11 @@
 <!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Campo de Tiro VR — Diagnóstico</title>
+<title>Futebol de Botão VR — Brasil x Argentina</title>
 <style>
   :root {
-    --void:#0b0f23; --horizon:#1b2750; --amber:#ffb347; --beam:#4fe3ff;
-    --ink:#e8ecff; --muted:#8a93c2; --ok:#5ddc9b; --bad:#ff6b7d; --warn:#ffcf66;
+    --void:#081209; --felt:#1c6b34; --bra:#ffd23f; --arg:#4f9bff;
+    --ink:#eef5ee; --muted:#8fae93; --ok:#5ddc9b; --bad:#ff6b7d; --line:#f2f6f0;
   }
   * { margin:0; box-sizing:border-box; }
   html,body { height:100%; background:var(--void); overflow:hidden; }
@@ -13,38 +13,54 @@
   #hud { position:fixed; inset:0; pointer-events:none;
     font-family:ui-monospace,"SF Mono",Menlo,monospace; color:var(--ink); }
 
-  #diag {
-    pointer-events:auto; position:absolute; left:20px; top:20px; width:min(420px,calc(100vw - 40px));
-    background:rgba(7,10,26,.92); border:1px solid rgba(79,227,255,.3); border-radius:14px;
-    padding:16px 18px; backdrop-filter:blur(8px);
+  #scorebar {
+    position:absolute; top:18px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:14px;
+    background:rgba(5,12,6,.88); border:1px solid rgba(242,246,240,.18);
+    border-radius:999px; padding:10px 22px; backdrop-filter:blur(8px);
   }
-  #diag h1 { font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--beam);
-    font-weight:600; margin-bottom:12px; }
-  #log { font-size:12.5px; line-height:1.7; white-space:pre-wrap; word-break:break-word; }
-  #log .ok::before  { content:"✔ "; color:var(--ok); }
-  #log .bad::before { content:"�’ "; color:var(--bad); }
-  #log .warn::before{ content:"› "; color:var(--warn); }
-  #log .ok{color:var(--ok);} #log .bad{color:var(--bad);} #log .warn{color:var(--warn);}
-  #log .dim{color:var(--muted);}
-  #verdict { margin-top:12px; font-size:13px; line-height:1.5; color:var(--ink);
-    border-top:1px solid rgba(138,147,194,.25); padding-top:12px; }
-  #buttons { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
-  button { pointer-events:auto; font:inherit; font-size:13px; font-weight:700; letter-spacing:.03em;
-    border:0; border-radius:999px; padding:11px 20px; cursor:pointer; }
-  #recheck { color:var(--ink); background:rgba(79,227,255,.14); border:1px solid rgba(79,227,255,.4); }
-  #enter { color:var(--void); background:var(--beam); }
-  #enter:disabled { background:var(--muted); color:var(--void); cursor:default; opacity:.55; }
-  #score { position:absolute; top:22px; right:26px; text-align:right; }
-  #score .n{ font-size:36px; font-weight:700; line-height:1; color:var(--amber); }
-  #score .l{ font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--muted); }
+  #scorebar .team { font-size:13px; letter-spacing:.14em; font-weight:700; }
+  #scorebar .bra { color:var(--bra); } #scorebar .arg { color:var(--arg); }
+  #scorebar .pts { font-size:26px; font-weight:700; }
+  #turn { position:absolute; top:74px; left:50%; transform:translateX(-50%);
+    font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); }
+
+  #diag {
+    pointer-events:auto; position:absolute; left:18px; bottom:18px; width:min(380px,calc(100vw - 36px));
+    background:rgba(5,12,6,.9); border:1px solid rgba(143,174,147,.35); border-radius:14px;
+    padding:14px 16px; backdrop-filter:blur(8px);
+  }
+  #diag h1 { font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted);
+    font-weight:600; margin-bottom:8px; }
+  #log { font-size:12px; line-height:1.65; }
+  #log .ok{color:var(--ok);} #log .bad{color:var(--bad);} #log .dim{color:var(--muted);}
+  #log .ok::before{content:"✔ ";} #log .bad::before{content:"✖ ";}
+  #help { font-size:12px; line-height:1.6; color:var(--muted); margin-top:8px;
+    border-top:1px solid rgba(143,174,147,.25); padding-top:8px; }
+  #help b { color:var(--ink); }
+  #buttons { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  button { pointer-events:auto; font:inherit; font-size:12.5px; font-weight:700; letter-spacing:.03em;
+    border:0; border-radius:999px; padding:10px 18px; cursor:pointer; }
+  #recheck { color:var(--ink); background:rgba(143,174,147,.16); border:1px solid rgba(143,174,147,.4); }
+  #enter { color:#08230f; background:var(--bra); }
+  #enter:disabled { background:var(--muted); cursor:default; opacity:.55; }
 </style>
 
 <div id="hud">
-  <div id="score"><div class="n">0</div><div class="l">Alvos</div></div>
+  <div id="scorebar">
+    <span class="team bra">BRA</span><span class="pts" id="sBra">0</span>
+    <span style="color:var(--muted)">×</span>
+    <span class="pts" id="sArg">0</span><span class="team arg">ARG</span>
+  </div>
+  <div id="turn">Sua vez — Brasil</div>
   <div id="diag">
-    <h1>Diagnóstico WebXR</h1>
+    <h1>Futebol de Botão VR</h1>
     <div id="log"></div>
-    <div id="verdict" class="dim">Rodando verificações…</div>
+    <div id="help">
+      <b>No Quest:</b> aponte pra um botão <b>amarelo</b>, segure o <b>gatilho</b>,
+      puxe pra trás (estilingue) e solte.<br>
+      <b>No PC:</b> arraste a partir de um botão amarelo pra mirar; arraste no vazio pra olhar.
+    </div>
     <div id="buttons">
       <button id="recheck">Re-verificar VR</button>
       <button id="enter" disabled>Entrar em VR</button>
@@ -52,63 +68,25 @@
   </div>
 </div>
 
-<!-- 1) Sink de erros + checagens básicas: roda mesmo se o Three.js falhar -->
 <script>
-  const logEl = document.getElementById("log");
-  const verdictEl = document.getElementById("verdict");
-  const enterBtn = document.getElementById("enter");
-  function line(cls, txt){ const d=document.createElement("div"); d.className=cls; d.textContent=txt; logEl.appendChild(d); }
-  window.__log = line;
-
-  addEventListener("error", (e)=> line("bad", "Erro JS: " + (e.message || e.error)));
-  addEventListener("unhandledrejection", (e)=> line("bad", "Promise rejeitada: " + (e.reason?.message || e.reason)));
-
+  const logEl=document.getElementById("log");
+  function line(cls,txt){const d=document.createElement("div");d.className=cls;d.textContent=txt;logEl.appendChild(d);}
+  window.__log=line;
+  addEventListener("error",(e)=>line("bad","Erro JS: "+(e.message||e.error)));
+  addEventListener("unhandledrejection",(e)=>line("bad","Promise: "+(e.reason?.message||e.reason)));
+  const enterBtn=document.getElementById("enter");
   async function checkVR(){
-    logEl.innerHTML = "";
-    // Contexto seguro (localhost ou https). file:// e http remoto reprovam.
-    if (window.isSecureContext) line("ok", "Contexto seguro (localhost/https) — ok");
-    else line("bad", "Contexto NÃO seguro — abra via http://localhost:porta, não com duplo-clique (file://)");
-
-    line("dim", "Origem: " + location.origin);
-
-    // API WebXR presente? (Chrome/Edge sim; Firefox desktop não)
-    if (!("xr" in navigator)) {
-      line("bad", "navigator.xr ausente — use Chrome ou Edge atualizados (Firefox desktop não tem WebXR)");
-      verdict(false, "no-api");
-      return;
-    }
-    line("ok", "navigator.xr presente — navegador ok");
-
-    // Runtime + headset prontos para sessão imersiva?
-    try {
-      const ok = await navigator.xr.isSessionSupported("immersive-vr");
-      if (ok) {
-        line("ok", "immersive-vr SUPORTADO — headset detectado!");
-        enterBtn.disabled = false;
-        verdict(true);
-      } else {
-        line("bad", "immersive-vr NÃO suportado — nenhum runtime de VR ativo agora");
-        enterBtn.disabled = true;
-        verdict(false, "no-runtime");
-      }
-    } catch (err) {
-      line("bad", "Erro ao checar sessão: " + err.message);
-      verdict(false, "no-runtime");
-    }
-    line("dim", "UA: " + navigator.userAgent.slice(0, 90) + "…");
+    logEl.innerHTML="";
+    if(!window.isSecureContext) line("bad","Contexto não seguro — use https/localhost");
+    if(!("xr" in navigator)){ line("bad","Sem WebXR — use Chrome/Edge ou o navegador do Quest"); return; }
+    try{
+      const ok=await navigator.xr.isSessionSupported("immersive-vr");
+      if(ok){ line("ok","VR pronta — toque em Entrar em VR"); enterBtn.disabled=false; }
+      else { line("bad","Nenhum headset ativo (no PC é esperado; abra no Quest)"); enterBtn.disabled=true; }
+    }catch(err){ line("bad","Checagem falhou: "+err.message); }
   }
-
-  function verdict(ready, reason){
-    if (ready){ verdictEl.style.color="var(--ok)"; verdictEl.textContent="Tudo pronto. Clique em \"Entrar em VR\"."; return; }
-    verdictEl.style.color="var(--ink)";
-    if (reason==="no-api")
-      verdictEl.textContent="Troque para Chrome ou Edge atualizados.";
-    else
-      verdictEl.innerHTML="Navegador ok, mas nenhum headset ativo. Verifique: (1) Link/Air Link LIGADO no headset agora; (2) app da Meta → OpenXR Runtime definido como \"Meta Quest Link\"; (3) clique <b>Re-verificar VR</b> depois de conectar o Link.";
-  }
-
-  document.getElementById("recheck").addEventListener("click", checkVR);
-  enterBtn.addEventListener("click", ()=> window.__enterVR && window.__enterVR());
+  document.getElementById("recheck").addEventListener("click",checkVR);
+  enterBtn.addEventListener("click",()=>window.__enterVR&&window.__enterVR());
   checkVR();
 </script>
 
@@ -116,102 +94,476 @@
 { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
 </script>
 
-<!-- 2) Jogo (mesma cena de antes). Se o import falhar, o sink acima reporta. -->
 <script type="module">
 import * as THREE from "three";
-window.__log && window.__log("ok", "Three.js carregado — render ok");
+window.__log&&window.__log("ok","Three.js carregado");
 
-const PAL = { void:0x0b0f23, horizon:0x1b2750, amber:0xffb347, beam:0x4fe3ff };
+// ---------- dimensões do jogo (metros) ----------
+const FIELD_L = 2.2, FIELD_W = 1.3;          // comprimento (z) x largura (x)
+const TABLE_Y = 0.78;                         // altura da mesa
+const GOAL_W = 0.46, GOAL_D = 0.14, GOAL_H = 0.12;
+const BTN_R = 0.034, BTN_H = 0.014;           // botões
+const BALL_R = 0.02;
+const MAX_POWER = 2.6;                        // m/s no disparo
+const FRICTION = 1.9;                         // amortecimento exp
+const STOP_EPS = 0.03;
 
-const renderer = new THREE.WebGLRenderer({ antialias:true });
+// ---------- cena ----------
+const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setSize(innerWidth, innerHeight);
-renderer.xr.enabled = true;
+renderer.setSize(innerWidth,innerHeight);
+renderer.xr.enabled=true;
 renderer.xr.setReferenceSpaceType("local-floor");
 document.body.appendChild(renderer.domElement);
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(PAL.void);
-scene.fog = new THREE.Fog(PAL.void, 10, 38);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x081209);
+scene.fog=new THREE.Fog(0x081209,6,22);
 
-const rig = new THREE.Group(); scene.add(rig);
-const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.05, 120);
-camera.position.set(0, 1.6, 0); rig.add(camera);
+const rig=new THREE.Group(); scene.add(rig);
+const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.05,80);
+camera.position.set(0,1.55,0.25); rig.add(camera);
 
-scene.add(new THREE.HemisphereLight(0x99b0ff, 0x1a1030, 0.9));
-const key = new THREE.DirectionalLight(0xfff0d8, 1.1); key.position.set(4,8,2); scene.add(key);
+scene.add(new THREE.HemisphereLight(0xbfe8c4,0x0a1f0e,0.85));
+const spot=new THREE.SpotLight(0xfff6dd,60,0,Math.PI/4,0.45);
+spot.position.set(0,3.4,-1.4); scene.add(spot);
+const fill=new THREE.DirectionalLight(0xcfe0ff,0.35); fill.position.set(-3,2,2); scene.add(fill);
 
-const grid = new THREE.GridHelper(80, 80, PAL.horizon, 0x121a38);
-grid.material.transparent=true; grid.material.opacity=0.55; scene.add(grid);
-const floor = new THREE.Mesh(new THREE.CircleGeometry(60,48),
-  new THREE.MeshStandardMaterial({ color:0x0d1430, roughness:1 }));
-floor.rotation.x=-Math.PI/2; floor.position.y=-0.01; scene.add(floor);
-for (let i=0;i<8;i++){ const a=(i/8)*Math.PI*2;
-  const p=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.22,3.4,12),
-    new THREE.MeshStandardMaterial({ color:0x223066, roughness:0.6 }));
-  p.position.set(Math.cos(a)*11,1.7,Math.sin(a)*11); scene.add(p); }
+// chão do "estádio"
+const floor=new THREE.Mesh(new THREE.CircleGeometry(20,48),
+  new THREE.MeshStandardMaterial({color:0x0b1c0e,roughness:1}));
+floor.rotation.x=-Math.PI/2; scene.add(floor);
 
-const sCanvas=document.createElement("canvas"); sCanvas.width=512; sCanvas.height=256;
-const sCtx=sCanvas.getContext("2d"); const sTex=new THREE.CanvasTexture(sCanvas);
-const board=new THREE.Mesh(new THREE.PlaneGeometry(1.6,0.8),
-  new THREE.MeshBasicMaterial({ map:sTex, transparent:true }));
-board.position.set(0,2.6,-4); scene.add(board);
-let score=0; const scoreEl=document.querySelector("#score .n");
-function drawScore(){ sCtx.clearRect(0,0,512,256); sCtx.fillStyle="rgba(11,15,35,.85)"; sCtx.fillRect(0,0,512,256);
-  sCtx.fillStyle="#ffb347"; sCtx.font="bold 150px ui-monospace,monospace"; sCtx.textAlign="center"; sCtx.textBaseline="middle";
-  sCtx.fillText(String(score),256,140); sCtx.fillStyle="#8a93c2"; sCtx.font="32px ui-monospace,monospace";
-  sCtx.fillText("ALVOS ATINGIDOS",256,40); sTex.needsUpdate=true; scoreEl.textContent=score; }
-drawScore();
+// ---------- mesa + campo ----------
+// grupo do mundo do jogo; jogador fica na ponta +z (gol do Brasil perto dele)
+const world=new THREE.Group();
+world.position.set(0,0,-1.45);
+scene.add(world);
 
-const TARGET_R=0.42; const targets=[]; const targetGeo=new THREE.IcosahedronGeometry(TARGET_R,1);
-function spawn(m){ const a=(Math.random()-0.5)*Math.PI*1.3; const d=3.5+Math.random()*6;
-  m.position.set(Math.sin(a)*d, 1.1+Math.random()*1.7, -Math.cos(a)*d);
-  m.userData.spin=(Math.random()-0.5)*1.5; m.userData.born=performance.now(); m.scale.setScalar(0.01); }
-for (let i=0;i<6;i++){ const m=new THREE.Mesh(targetGeo,
-  new THREE.MeshStandardMaterial({ color:PAL.amber, emissive:PAL.amber, emissiveIntensity:0.35, roughness:0.3 }));
-  spawn(m); scene.add(m); targets.push(m); }
+// tampo de madeira
+const table=new THREE.Mesh(
+  new THREE.BoxGeometry(FIELD_W+0.18,0.06,FIELD_L+0.18),
+  new THREE.MeshStandardMaterial({color:0x4a2f1d,roughness:0.7})
+);
+table.position.y=TABLE_Y-0.031; world.add(table);
+// pés
+const legGeo=new THREE.CylinderGeometry(0.03,0.035,TABLE_Y-0.06,10);
+const legMat=new THREE.MeshStandardMaterial({color:0x33210f,roughness:0.8});
+for(const [sx,sz] of [[-1,-1],[1,-1],[-1,1],[1,1]]){
+  const l=new THREE.Mesh(legGeo,legMat);
+  l.position.set(sx*(FIELD_W/2),(TABLE_Y-0.06)/2,sz*(FIELD_L/2)); world.add(l);
+}
 
-const shots=[]; const shotGeo=new THREE.SphereGeometry(0.07,12,12);
-const shotMat=new THREE.MeshBasicMaterial({ color:PAL.beam });
-function fire(origin,dir){ const s=new THREE.Mesh(shotGeo,shotMat); s.position.copy(origin);
-  s.userData.vel=dir.clone().normalize().multiplyScalar(18); s.userData.life=2.5; scene.add(s); shots.push(s); }
+// campo (textura desenhada)
+const fc=document.createElement("canvas"); fc.width=512; fc.height=864;
+const fx=fc.getContext("2d");
+function drawField(){
+  fx.fillStyle="#1c6b34"; fx.fillRect(0,0,512,864);
+  // faixas de grama
+  fx.fillStyle="rgba(255,255,255,0.035)";
+  for(let i=0;i<8;i+=2) fx.fillRect(0,i*108,512,108);
+  fx.strokeStyle="#f2f6f0"; fx.lineWidth=5;
+  fx.strokeRect(18,18,476,828);                       // borda
+  fx.beginPath(); fx.moveTo(18,432); fx.lineTo(494,432); fx.stroke(); // meio
+  fx.beginPath(); fx.arc(256,432,80,0,Math.PI*2); fx.stroke();        // círculo central
+  // áreas
+  fx.strokeRect(120,18,272,120);
+  fx.strokeRect(120,726,272,120);
+}
+drawField();
+const fieldTex=new THREE.CanvasTexture(fc);
+const field=new THREE.Mesh(
+  new THREE.PlaneGeometry(FIELD_W,FIELD_L),
+  new THREE.MeshStandardMaterial({map:fieldTex,roughness:0.95})
+);
+field.rotation.x=-Math.PI/2; field.position.y=TABLE_Y+0.001; world.add(field);
 
-const beamGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-1)]);
-function makeController(i){ const c=renderer.xr.getController(i);
-  const ln=new THREE.Line(beamGeo,new THREE.LineBasicMaterial({ color:PAL.beam })); ln.scale.z=6; c.add(ln);
-  c.addEventListener("selectstart",()=>{ const o=new THREE.Vector3(); c.getWorldPosition(o);
-    const dir=new THREE.Vector3(0,0,-1).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion())); fire(o,dir); });
-  rig.add(c); }
-makeController(0); makeController(1);
+// bordas (carpete que segura os botões)
+const railMat=new THREE.MeshStandardMaterial({color:0x123f1f,roughness:0.9});
+function rail(w,d,x,z){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,0.05,d),railMat);
+  m.position.set(x,TABLE_Y+0.02,z); world.add(m);
+}
+rail(0.08,FIELD_L+0.16,-(FIELD_W/2+0.04),0);
+rail(0.08,FIELD_L+0.16, (FIELD_W/2+0.04),0);
+// fundos com vão do gol
+const endSeg=(FIELD_W-GOAL_W)/2;
+for(const zs of [-1,1]){
+  rail(endSeg,0.08,-(GOAL_W/2+endSeg/2),zs*(FIELD_L/2+0.04));
+  rail(endSeg,0.08, (GOAL_W/2+endSeg/2),zs*(FIELD_L/2+0.04));
+}
 
-let yaw=0,pitch=0,drag=false,lx=0,ly=0,moved=false;
+// gols (traves brancas + caixa)
+const postMat=new THREE.MeshStandardMaterial({color:0xf5f5f5,roughness:0.4});
+function goal(zs){
+  const g=new THREE.Group();
+  const r=0.008;
+  const left=new THREE.Mesh(new THREE.CylinderGeometry(r,r,GOAL_H,8),postMat);
+  left.position.set(-GOAL_W/2,TABLE_Y+GOAL_H/2,0);
+  const right=left.clone(); right.position.x=GOAL_W/2;
+  const bar=new THREE.Mesh(new THREE.CylinderGeometry(r,r,GOAL_W,8),postMat);
+  bar.rotation.z=Math.PI/2; bar.position.set(0,TABLE_Y+GOAL_H,0);
+  const net=new THREE.Mesh(new THREE.BoxGeometry(GOAL_W,GOAL_H,GOAL_D),
+    new THREE.MeshStandardMaterial({color:0xdde6dd,transparent:true,opacity:0.18}));
+  net.position.set(0,TABLE_Y+GOAL_H/2,zs*GOAL_D/2);
+  g.add(left,right,bar,net);
+  g.position.z=zs*(FIELD_L/2);
+  world.add(g);
+}
+goal(-1); goal(1);
+
+// ---------- discos ----------
+// jogador (Brasil) ataca o gol em z=-FIELD_L/2; Argentina ataca z=+FIELD_L/2
+const discs=[];
+function makeDisc(color,ringColor,radius,height,team){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,height,24),
+    new THREE.MeshStandardMaterial({color,roughness:0.35,metalness:0.05}));
+  body.position.y=height/2;
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(radius*0.62,radius*0.1,8,24),
+    new THREE.MeshStandardMaterial({color:ringColor,roughness:0.4}));
+  ring.rotation.x=Math.PI/2; ring.position.y=height+0.001;
+  g.add(body,ring);
+  world.add(g);
+  const d={group:g,body,team,radius,mass:team==="ball"?0.25:1,
+    pos:new THREE.Vector2(),vel:new THREE.Vector2(),baseEmissive:0};
+  discs.push(d); return d;
+}
+const FORM={ // [x, z] em fração do campo; z>0 = lado do jogador
+  player:[[0,0.86],[-0.30,0.45],[0.30,0.45],[-0.16,0.14],[0.16,0.14]],
+  ai:    [[0,-0.86],[-0.30,-0.45],[0.30,-0.45],[-0.16,-0.14],[0.16,-0.14]],
+};
+const playerDiscs=FORM.player.map(()=>makeDisc(0xffd23f,0x1c6b34,BTN_R,BTN_H,"player"));
+const aiDiscs=FORM.ai.map(()=>makeDisc(0x4f9bff,0xf5f5f5,BTN_R,BTN_H,"ai"));
+const ball=makeDisc(0xf5f5f5,0xcccccc,BALL_R,BALL_R*1.4,"ball");
+ball.body.material.roughness=0.2;
+
+function resetPositions(){
+  const place=(d,fx,fz)=>{d.pos.set(fx*FIELD_W/2*1.7,fz*FIELD_L/2); d.vel.set(0,0);};
+  FORM.player.forEach((f,i)=>place(playerDiscs[i],f[0],f[1]));
+  FORM.ai.forEach((f,i)=>place(aiDiscs[i],f[0],f[1]));
+  ball.pos.set(0,0); ball.vel.set(0,0);
+}
+resetPositions();
+
+// ---------- placar / turno ----------
+let scoreBra=0,scoreArg=0;
+const sBra=document.getElementById("sBra"),sArg=document.getElementById("sArg");
+const turnEl=document.getElementById("turn");
+// painel flutuante (visível dentro da VR)
+const bc=document.createElement("canvas"); bc.width=640; bc.height=200;
+const bx=bc.getContext("2d"); const bTex=new THREE.CanvasTexture(bc);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(1.5,0.47),
+  new THREE.MeshBasicMaterial({map:bTex,transparent:true}));
+board.position.set(0,1.9,-FIELD_L/2-0.5); world.add(board);
+function drawBoard(msg){
+  bx.clearRect(0,0,640,200);
+  bx.fillStyle="rgba(5,12,6,.88)"; bx.fillRect(0,0,640,200);
+  bx.textAlign="center"; bx.textBaseline="middle";
+  bx.font="bold 84px ui-monospace,monospace";
+  bx.fillStyle="#ffd23f"; bx.fillText(String(scoreBra),200,78);
+  bx.fillStyle="#8fae93"; bx.fillText("×",320,78);
+  bx.fillStyle="#4f9bff"; bx.fillText(String(scoreArg),440,78);
+  bx.font="28px ui-monospace,monospace"; bx.fillStyle="#eef5ee";
+  bx.fillText(msg,320,160);
+  bTex.needsUpdate=true;
+}
+function setTurnUI(msg){ turnEl.textContent=msg; drawBoard(msg); }
+function syncScore(){ sBra.textContent=scoreBra; sArg.textContent=scoreArg; }
+syncScore(); 
+
+// ---------- estado ----------
+// "player" -> mira/atira; "sim" -> física rolando; "ai" -> IA atira; "goal" -> pausa pós-gol
+let state="player";
+let nextTurn="ai";
+setTurnUI("Sua vez — Brasil");
+
+function allStopped(){
+  return discs.every(d=>d.vel.lengthSq()<STOP_EPS*STOP_EPS);
+}
+
+// ---------- física 2D (substeps) ----------
+const HALF_W=FIELD_W/2, HALF_L=FIELD_L/2;
+function physStep(dt){
+  const damp=Math.exp(-FRICTION*dt);
+  for(const d of discs){
+    if(d.vel.lengthSq()===0) continue;
+    d.pos.addScaledVector(d.vel,dt);
+    d.vel.multiplyScalar(damp);
+    if(d.vel.length()<STOP_EPS) d.vel.set(0,0);
+  }
+  // paredes
+  for(const d of discs){
+    const r=d.radius, rest=0.78;
+    if(d.pos.x<-HALF_W+r){ d.pos.x=-HALF_W+r; d.vel.x=Math.abs(d.vel.x)*rest; }
+    if(d.pos.x> HALF_W-r){ d.pos.x= HALF_W-r; d.vel.x=-Math.abs(d.vel.x)*rest; }
+    // Vector2: x = x do campo, y = z do campo
+    const z=d.pos.y;
+    const ballCanPass=d.team==="ball"&&Math.abs(d.pos.x)<GOAL_W/2;
+    if(!ballCanPass){
+      if(z<-HALF_L+r){ d.pos.y=-HALF_L+r; d.vel.y=Math.abs(d.vel.y)*rest; }
+      if(z> HALF_L-r){ d.pos.y= HALF_L-r; d.vel.y=-Math.abs(d.vel.y)*rest; }
+    }
+  }
+  // colisões disco-disco
+  for(let i=0;i<discs.length;i++) for(let j=i+1;j<discs.length;j++){
+    const a=discs[i],b=discs[j];
+    const dx=b.pos.x-a.pos.x, dz=b.pos.y-a.pos.y;
+    const dist2=dx*dx+dz*dz, minD=a.radius+b.radius;
+    if(dist2>=minD*minD||dist2===0) continue;
+    const dist=Math.sqrt(dist2), nx=dx/dist, nz=dz/dist;
+    const overlap=minD-dist, tm=a.mass+b.mass;
+    a.pos.x-=nx*overlap*(b.mass/tm); a.pos.y-=nz*overlap*(b.mass/tm);
+    b.pos.x+=nx*overlap*(a.mass/tm); b.pos.y+=nz*overlap*(a.mass/tm);
+    const rvx=b.vel.x-a.vel.x, rvz=b.vel.y-a.vel.y;
+    const velN=rvx*nx+rvz*nz;
+    if(velN>0) continue;
+    const e=0.86, jImp=-(1+e)*velN/(1/a.mass+1/b.mass);
+    a.vel.x-=jImp*nx/a.mass; a.vel.y-=jImp*nz/a.mass;
+    b.vel.x+=jImp*nx/b.mass; b.vel.y+=jImp*nz/b.mass;
+  }
+}
+
+function checkGoal(){
+  const z=ball.pos.y;
+  if(Math.abs(ball.pos.x)<GOAL_W/2){
+    if(z<=-HALF_L+0.005){ return "bra"; }   // gol do Brasil (fundo da Argentina)
+    if(z>= HALF_L-0.005){ return "arg"; }   // gol da Argentina
+  }
+  return null;
+}
+
+// ---------- mira estilingue ----------
+const aimLine=new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),
+  new THREE.LineBasicMaterial({color:0xffd23f})
+);
+aimLine.visible=false; world.add(aimLine);
+const aimArrow=new THREE.Mesh(new THREE.ConeGeometry(0.018,0.05,10),
+  new THREE.MeshBasicMaterial({color:0xffd23f}));
+aimArrow.visible=false; world.add(aimArrow);
+
+let selected=null;                 // disco amarelo em mira
+let pullPoint=new THREE.Vector2(); // ponto de puxada (coords do campo)
+
+const raycaster=new THREE.Raycaster();
+const tablePlane=new THREE.Plane(new THREE.Vector3(0,1,0),-(TABLE_Y));
+const tmpV3=new THREE.Vector3();
+
+function rayToField(origin,dir){
+  raycaster.set(origin,dir);
+  const hit=raycaster.ray.intersectPlane(tablePlane,tmpV3);
+  if(!hit) return null;
+  const local=world.worldToLocal(hit.clone());
+  return new THREE.Vector2(local.x,local.z);
+}
+function pickPlayerDisc(p){
+  if(!p) return null;
+  let best=null,bd=0.09; // tolerância de mira
+  for(const d of playerDiscs){
+    const dist=Math.hypot(d.pos.x-p.x,d.pos.y-p.y);
+    if(dist<bd){bd=dist;best=d;}
+  }
+  return best;
+}
+function startAim(p){
+  if(state!=="player") return;
+  const d=pickPlayerDisc(p);
+  if(d){ selected=d; pullPoint.copy(p); updateAimVisual(); }
+}
+function moveAim(p){
+  if(!selected||!p) return;
+  pullPoint.copy(p); updateAimVisual();
+}
+function updateAimVisual(){
+  if(!selected){ aimLine.visible=aimArrow.visible=false; return; }
+  const y=TABLE_Y+0.03;
+  const from=new THREE.Vector3(pullPoint.x,y,pullPoint.y);
+  const to=new THREE.Vector3(selected.pos.x,y,selected.pos.y);
+  aimLine.geometry.setFromPoints([from,to]);
+  aimLine.visible=true;
+  // seta na direção do disparo
+  const dir=new THREE.Vector2(selected.pos.x-pullPoint.x,selected.pos.y-pullPoint.y);
+  const len=Math.min(dir.length(),0.5);
+  if(len>0.02){
+    const n=dir.clone().normalize();
+    aimArrow.position.set(selected.pos.x+n.x*(len*0.8+0.06),y,selected.pos.y+n.y*(len*0.8+0.06));
+    aimArrow.rotation.set(Math.PI/2,0,Math.atan2(-n.x,-n.y)+Math.PI);
+    aimArrow.visible=true;
+  } else aimArrow.visible=false;
+}
+function releaseAim(){
+  if(!selected) return;
+  const impulse=new THREE.Vector2(selected.pos.x-pullPoint.x,selected.pos.y-pullPoint.y).multiplyScalar(5.5);
+  if(impulse.length()>MAX_POWER) impulse.setLength(MAX_POWER);
+  if(impulse.length()>0.15){
+    selected.vel.copy(impulse);
+    state="sim"; nextTurn="ai";
+    setTurnUI("Jogada em andamento…");
+    pulseHaptics(0.6,80);
+  }
+  selected=null; aimLine.visible=aimArrow.visible=false;
+}
+
+// ---------- IA (Argentina) ----------
+let aiTimer=0;
+function aiShoot(){
+  // escolhe o botão com melhor linha pra empurrar a bola rumo ao gol do Brasil (z=+HALF_L)
+  const goalPos=new THREE.Vector2(0,HALF_L);
+  let best=null,bestScore=-1e9;
+  for(const d of aiDiscs){
+    const toBall=new THREE.Vector2().subVectors(ball.pos,d.pos);
+    const distBall=toBall.length();
+    const ballToGoal=new THREE.Vector2().subVectors(goalPos,ball.pos).normalize();
+    const align=toBall.clone().normalize().dot(ballToGoal); // 1 = perfeitamente atrás da bola
+    const s=align*2-distBall;
+    if(s>bestScore){bestScore=s;best=d;}
+  }
+  if(!best){ endSimTurn(); return; }
+  // ponto de contato: lado da bola oposto ao gol
+  const ballToGoal=new THREE.Vector2().subVectors(goalPos,ball.pos).normalize();
+  const contact=ball.pos.clone().addScaledVector(ballToGoal,-(BALL_R+best.radius)*0.9);
+  const dir=new THREE.Vector2().subVectors(contact,best.pos).normalize();
+  // imprecisão humana
+  const ang=(Math.random()-0.5)*0.22;
+  const cos=Math.cos(ang),sin=Math.sin(ang);
+  dir.set(dir.x*cos-dir.y*sin,dir.x*sin+dir.y*cos);
+  const power=1.4+Math.random()*0.9;
+  best.vel.copy(dir.multiplyScalar(Math.min(power,MAX_POWER)));
+  state="sim"; nextTurn="player";
+  setTurnUI("Argentina jogou…");
+}
+
+function endSimTurn(){
+  const g=checkGoal();
+  if(g){
+    if(g==="bra"){scoreBra++; setTurnUI("⚽ GOL DO BRASIL!");}
+    else {scoreArg++; setTurnUI("Gol da Argentina…");}
+    syncScore(); drawBoard(g==="bra"?"GOOOL DO BRASIL!":"Gol da Argentina…");
+    pulseHaptics(g==="bra"?1:0.3,g==="bra"?250:120);
+    state="goal";
+    setTimeout(()=>{
+      resetPositions();
+      // quem sofreu o gol recomeça
+      if(g==="bra"){ state="ai"; aiTimer=0.9; setTurnUI("Vez da Argentina"); }
+      else { state="player"; setTurnUI("Sua vez — Brasil"); }
+    },1800);
+    return;
+  }
+  if(nextTurn==="ai"){ state="ai"; aiTimer=0.9; setTurnUI("Vez da Argentina"); }
+  else { state="player"; setTurnUI("Sua vez — Brasil"); }
+}
+
+// ---------- haptics ----------
+function pulseHaptics(intensity,ms){
+  const session=renderer.xr.getSession&&renderer.xr.getSession();
+  if(!session) return;
+  for(const src of session.inputSources||[]){
+    const act=src.gamepad&&src.gamepad.hapticActuators&&src.gamepad.hapticActuators[0];
+    if(act&&act.pulse) try{act.pulse(intensity,ms);}catch(e){}
+  }
+}
+
+// ---------- controles VR ----------
+function setupController(i){
+  const c=renderer.xr.getController(i);
+  const beam=new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-1)]),
+    new THREE.LineBasicMaterial({color:0xffd23f,transparent:true,opacity:0.6})
+  );
+  beam.scale.z=3; c.add(beam);
+  c.userData.aiming=false;
+  c.addEventListener("selectstart",()=>{
+    const p=controllerFieldPoint(c);
+    if(p){ startAim(p); c.userData.aiming=!!selected; }
+  });
+  c.addEventListener("selectend",()=>{
+    if(c.userData.aiming){ releaseAim(); c.userData.aiming=false; }
+  });
+  rig.add(c);
+  return c;
+}
+const con0=setupController(0), con1=setupController(1);
+function controllerFieldPoint(c){
+  const origin=new THREE.Vector3(); c.getWorldPosition(origin);
+  const dir=new THREE.Vector3(0,0,-1).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion()));
+  return rayToField(origin,dir);
+}
+
+// ---------- controles desktop ----------
+let yaw=0,pitch=-0.35,dragLook=false,lx=0,ly=0;
 const presenting=()=>renderer.xr.isPresenting;
-addEventListener("pointerdown",(e)=>{ if(presenting()||e.target.closest("#diag"))return; drag=true; moved=false; lx=e.clientX; ly=e.clientY; });
-addEventListener("pointermove",(e)=>{ if(!drag)return; const dx=e.clientX-lx,dy=e.clientY-ly;
-  if(Math.abs(dx)+Math.abs(dy)>3)moved=true; yaw-=dx*0.004; pitch=Math.max(-1.2,Math.min(1.2,pitch-dy*0.004)); lx=e.clientX; ly=e.clientY; });
-addEventListener("pointerup",(e)=>{ if(presenting()||e.target.closest("#diag")){drag=false;return;}
-  if(drag&&!moved){ const dir=new THREE.Vector3(0,0,-1).applyEuler(camera.rotation);
-    const o=new THREE.Vector3(); camera.getWorldPosition(o); fire(o,dir);} drag=false; });
+function mouseFieldPoint(e){
+  const ndc=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
+  raycaster.setFromCamera(ndc,camera);
+  const hit=raycaster.ray.intersectPlane(tablePlane,tmpV3);
+  if(!hit) return null;
+  const local=world.worldToLocal(hit.clone());
+  return new THREE.Vector2(local.x,local.z);
+}
+addEventListener("pointerdown",(e)=>{
+  if(presenting()||e.target.closest("#diag,#scorebar")) return;
+  const p=mouseFieldPoint(e);
+  startAim(p);
+  if(!selected){ dragLook=true; lx=e.clientX; ly=e.clientY; }
+});
+addEventListener("pointermove",(e)=>{
+  if(presenting()) return;
+  if(selected){ moveAim(mouseFieldPoint(e)); return; }
+  if(dragLook){
+    yaw-=(e.clientX-lx)*0.004; pitch=Math.max(-1.2,Math.min(0.4,pitch-(e.clientY-ly)*0.004));
+    lx=e.clientX; ly=e.clientY;
+  }
+});
+addEventListener("pointerup",()=>{ if(!presenting()){ releaseAim(); dragLook=false; } });
 
-window.__enterVR = async ()=>{
-  try {
-    const session = await navigator.xr.requestSession("immersive-vr",{ optionalFeatures:["local-floor","bounded-floor"] });
+// ---------- entrar em VR ----------
+window.__enterVR=async()=>{
+  try{
+    const session=await navigator.xr.requestSession("immersive-vr",{optionalFeatures:["local-floor","bounded-floor"]});
     await renderer.xr.setSession(session);
-    window.__log && window.__log("ok","Sessão imersiva iniciada");
-  } catch(err){ window.__log && window.__log("bad","Falha ao entrar em VR: "+err.message); }
+    window.__log&&window.__log("ok","Sessão imersiva iniciada — bom jogo!");
+  }catch(err){ window.__log&&window.__log("bad","Falha ao entrar: "+err.message); }
 };
 
+// ---------- loop ----------
 const clock=new THREE.Clock();
-renderer.setAnimationLoop(()=>{ const dt=Math.min(clock.getDelta(),0.05);
+renderer.setAnimationLoop(()=>{
+  const dt=Math.min(clock.getDelta(),0.05);
   if(!presenting()) camera.rotation.set(pitch,yaw,0,"YXZ");
-  for(const t of targets){ t.rotation.y+=t.userData.spin*dt;
-    t.scale.setScalar(Math.min(1,(performance.now()-t.userData.born)/220)); }
+
+  // mira contínua em VR
+  if(presenting()&&selected){
+    const src=con0.userData.aiming?con0:(con1.userData.aiming?con1:null);
+    if(src){ const p=controllerFieldPoint(src); if(p) moveAim(p); }
+  }
+
+  if(state==="sim"){
+    const sub=4, sdt=dt/sub;
+    for(let s=0;s<sub;s++) physStep(sdt);
+    // gol no meio da jogada encerra na hora
+    if(checkGoal()) { endSimTurn(); }
+    else if(allStopped()) endSimTurn();
+  } else if(state==="ai"){
+    aiTimer-=dt;
+    if(aiTimer<=0) aiShoot();
+  }
+
+  // sincroniza meshes
+  for(const d of discs){
+    d.group.position.set(d.pos.x,TABLE_Y,d.pos.y);
+  }
+  // highlight dos botões selecionáveis
+  for(const d of playerDiscs){
+    const on=(state==="player");
+    d.body.material.emissive=new THREE.Color(on?0x4a3a00:0x000000);
+    if(d===selected) d.body.material.emissive=new THREE.Color(0x8a6a00);
+  }
   board.lookAt(camera.getWorldPosition(new THREE.Vector3()));
-  for(let i=shots.length-1;i>=0;i--){ const s=shots[i];
-    s.position.addScaledVector(s.userData.vel,dt); s.userData.life-=dt; let hit=false;
-    for(const t of targets){ if(s.position.distanceTo(t.position)<TARGET_R+0.12){ score++; drawScore(); spawn(t); hit=true; break; } }
-    if(hit||s.userData.life<=0){ scene.remove(s); shots.splice(i,1); } }
   renderer.render(scene,camera);
 });
-addEventListener("resize",()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
-</script>
+
+addEventListener("resize",()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
