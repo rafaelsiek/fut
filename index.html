@@ -528,6 +528,27 @@ function updateLocomotion(dt){
   }
 }
 
+// ---------- calibração ao entrar na VR ----------
+// posiciona o jogador na ponta da mesa, com os olhos à altura certa, olhando pro campo
+let needCalib=false, calibFrames=0;
+const EYE_TARGET=1.5;   // altura dos olhos em relação à mesa (m)
+const SPAWN_Z=0.18;     // distância da ponta da mesa
+function calibrateOnEntry(){
+  if(!needCalib) return;
+  calibFrames++;
+  const p=camera.getWorldPosition(new THREE.Vector3());
+  if(calibFrames<10&&p.y===0) return;   // espera o headset reportar pose válida
+  rig.position.x+=0-p.x;
+  rig.position.z+=SPAWN_Z-p.z;
+  rig.position.y+=EYE_TARGET-p.y;
+  const f=camera.getWorldDirection(new THREE.Vector3()); f.y=0;
+  if(f.lengthSq()>1e-4){
+    f.normalize();
+    turnRig(Math.PI-Math.atan2(f.x,f.z));  // vira pra encarar o campo
+  }
+  needCalib=false;
+}
+
 // ---------- controles desktop ----------
 let yaw=0,pitch=-0.35,dragLook=false,lx=0,ly=0;
 const presenting=()=>renderer.xr.isPresenting;
@@ -560,6 +581,8 @@ window.__enterVR=async()=>{
   try{
     const session=await navigator.xr.requestSession("immersive-vr",{optionalFeatures:["local-floor","bounded-floor"]});
     await renderer.xr.setSession(session);
+    rig.position.set(0,0,0); rig.quaternion.set(0,0,0,1);
+    needCalib=true; calibFrames=0;
     window.__log&&window.__log("ok","Sessão imersiva iniciada — bom jogo!");
   }catch(err){ window.__log&&window.__log("bad","Falha ao entrar: "+err.message); }
 };
@@ -569,7 +592,7 @@ const clock=new THREE.Clock();
 renderer.setAnimationLoop(()=>{
   const dt=Math.min(clock.getDelta(),0.05);
   if(!presenting()) camera.rotation.set(pitch,yaw,0,"YXZ");
-  else updateLocomotion(dt);
+  else { calibrateOnEntry(); updateLocomotion(dt); }
 
   // mira contínua em VR
   if(presenting()&&selected){
