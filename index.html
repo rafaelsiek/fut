@@ -101,7 +101,10 @@ window.__log&&window.__log("ok","Three.js carregado");
 // ---------- dimensões do jogo (metros) ----------
 const FIELD_L = 2.2, FIELD_W = 1.3;          // comprimento (z) x largura (x)
 const TABLE_Y = 0.78;                         // altura da mesa
-const GOAL_W = 0.46, GOAL_D = 0.14, GOAL_H = 0.12;
+const GOAL_W = 0.46, GOAL_DEPTH = 0.18, GOAL_H = 0.12;
+const LINE_INSET = FIELD_L*18/864;          // a linha branca é desenhada 18px pra dentro da borda
+const GOAL_LINE  = FIELD_L/2 - LINE_INSET;  // posição z real da linha de fundo
+const LINE_HALF_W = (FIELD_L*5/864)/2;      // metade da espessura da linha branca
 const BTN_R = 0.034, BTN_H = 0.014;           // botões
 const BALL_R = 0.02;
 const MAX_POWER = 2.6;                        // m/s no disparo
@@ -142,7 +145,7 @@ scene.add(world);
 
 // tampo de madeira
 const table=new THREE.Mesh(
-  new THREE.BoxGeometry(FIELD_W+0.18,0.06,FIELD_L+0.18),
+  new THREE.BoxGeometry(FIELD_W+0.18,0.06,FIELD_L+0.42),
   new THREE.MeshStandardMaterial({color:0x4a2f1d,roughness:0.7})
 );
 table.position.y=TABLE_Y-0.031; world.add(table);
@@ -203,11 +206,11 @@ function goal(zs){
   const right=left.clone(); right.position.x=GOAL_W/2;
   const bar=new THREE.Mesh(new THREE.CylinderGeometry(r,r,GOAL_W,8),postMat);
   bar.rotation.z=Math.PI/2; bar.position.set(0,TABLE_Y+GOAL_H,0);
-  const net=new THREE.Mesh(new THREE.BoxGeometry(GOAL_W,GOAL_H,GOAL_D),
+  const net=new THREE.Mesh(new THREE.BoxGeometry(GOAL_W,GOAL_H,GOAL_DEPTH),
     new THREE.MeshStandardMaterial({color:0xdde6dd,transparent:true,opacity:0.18}));
-  net.position.set(0,TABLE_Y+GOAL_H/2,zs*GOAL_D/2);
+  net.position.set(0,TABLE_Y+GOAL_H/2,zs*GOAL_DEPTH/2);
   g.add(left,right,bar,net);
-  g.position.z=zs*(FIELD_L/2);
+  g.position.z=zs*GOAL_LINE;
   world.add(g);
 }
 goal(-1); goal(1);
@@ -295,14 +298,37 @@ function physStep(dt){
   // paredes
   for(const d of discs){
     const r=d.radius, rest=0.78;
-    if(d.pos.x<-HALF_W+r){ d.pos.x=-HALF_W+r; d.vel.x=Math.abs(d.vel.x)*rest; }
-    if(d.pos.x> HALF_W-r){ d.pos.x= HALF_W-r; d.vel.x=-Math.abs(d.vel.x)*rest; }
     // Vector2: x = x do campo, y = z do campo
     const z=d.pos.y;
-    const ballCanPass=d.team==="ball"&&Math.abs(d.pos.x)<GOAL_W/2;
-    if(!ballCanPass){
-      if(z<-HALF_L+r){ d.pos.y=-HALF_L+r; d.vel.y=Math.abs(d.vel.y)*rest; }
-      if(z> HALF_L-r){ d.pos.y= HALF_L-r; d.vel.y=-Math.abs(d.vel.y)*rest; }
+    const inMouthX=Math.abs(d.pos.x)<GOAL_W/2-r;     // cabe pela boca do gol
+    const insideGoal=Math.abs(z)>GOAL_LINE&&inMouthX;
+    if(insideGoal){
+      // dentro da goleira: redes laterais e fundo amortecem (rede segura)
+      const s=Math.sign(z), soft=0.3;
+      if(d.pos.x<-(GOAL_W/2-r)){ d.pos.x=-(GOAL_W/2-r); d.vel.x=Math.abs(d.vel.x)*soft; }
+      if(d.pos.x> (GOAL_W/2-r)){ d.pos.x= (GOAL_W/2-r); d.vel.x=-Math.abs(d.vel.x)*soft; }
+      const back=GOAL_LINE+GOAL_DEPTH-r;
+      if(Math.abs(z)>back){ d.pos.y=s*back; d.vel.y=-s*Math.abs(d.vel.y)*soft; }
+    } else {
+      if(d.pos.x<-HALF_W+r){ d.pos.x=-HALF_W+r; d.vel.x=Math.abs(d.vel.x)*rest; }
+      if(d.pos.x> HALF_W-r){ d.pos.x= HALF_W-r; d.vel.x=-Math.abs(d.vel.x)*rest; }
+      if(!inMouthX){
+        // fora da boca: a borda da mesa segura como sempre
+        if(z<-HALF_L+r){ d.pos.y=-HALF_L+r; d.vel.y=Math.abs(d.vel.y)*rest; }
+        if(z> HALF_L-r){ d.pos.y= HALF_L-r; d.vel.y=-Math.abs(d.vel.y)*rest; }
+      }
+    }
+    // traves: colisores pontuais nas quatro traves em pé ("na trave!")
+    for(const ps of [-1,1]) for(const xs of [-1,1]){
+      const px=xs*GOAL_W/2, pz=ps*GOAL_LINE;
+      const dx=d.pos.x-px, dz=d.pos.y-pz, rr=r+0.008;
+      const d2=dx*dx+dz*dz;
+      if(d2<rr*rr&&d2>1e-9){
+        const dist=Math.sqrt(d2), nx=dx/dist, nz=dz/dist;
+        d.pos.x=px+nx*rr; d.pos.y=pz+nz*rr;
+        const vn=d.vel.x*nx+d.vel.y*nz;
+        if(vn<0){ const e=0.8; d.vel.x-=(1+e)*vn*nx; d.vel.y-=(1+e)*vn*nz; }
+      }
     }
   }
   // colisões disco-disco
@@ -325,10 +351,13 @@ function physStep(dt){
 }
 
 function checkGoal(){
+  // regra do futebol: gol só quando a bola INTEIRA cruza a linha por completo
+  // (centro da bola além de: linha + meia espessura da linha + raio da bola)
+  const cross=GOAL_LINE+LINE_HALF_W+BALL_R;
   const z=ball.pos.y;
   if(Math.abs(ball.pos.x)<GOAL_W/2){
-    if(z<=-HALF_L+0.005){ return "bra"; }   // gol do Brasil (fundo da Argentina)
-    if(z>= HALF_L-0.005){ return "arg"; }   // gol da Argentina
+    if(z<=-cross){ return "bra"; }   // gol do Brasil (fundo da Argentina)
+    if(z>= cross){ return "arg"; }   // gol da Argentina
   }
   return null;
 }
@@ -401,7 +430,7 @@ function releaseAim(){
 let aiTimer=0;
 function aiShoot(){
   // escolhe o botão com melhor linha pra empurrar a bola rumo ao gol do Brasil (z=+HALF_L)
-  const goalPos=new THREE.Vector2(0,HALF_L);
+  const goalPos=new THREE.Vector2(0,GOAL_LINE);
   let best=null,bestScore=-1e9;
   for(const d of aiDiscs){
     const toBall=new THREE.Vector2().subVectors(ball.pos,d.pos);
