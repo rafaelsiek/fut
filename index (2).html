@@ -1,0 +1,217 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Campo de Tiro VR — Diagnóstico</title>
+<style>
+  :root {
+    --void:#0b0f23; --horizon:#1b2750; --amber:#ffb347; --beam:#4fe3ff;
+    --ink:#e8ecff; --muted:#8a93c2; --ok:#5ddc9b; --bad:#ff6b7d; --warn:#ffcf66;
+  }
+  * { margin:0; box-sizing:border-box; }
+  html,body { height:100%; background:var(--void); overflow:hidden; }
+  canvas { display:block; }
+  #hud { position:fixed; inset:0; pointer-events:none;
+    font-family:ui-monospace,"SF Mono",Menlo,monospace; color:var(--ink); }
+
+  #diag {
+    pointer-events:auto; position:absolute; left:20px; top:20px; width:min(420px,calc(100vw - 40px));
+    background:rgba(7,10,26,.92); border:1px solid rgba(79,227,255,.3); border-radius:14px;
+    padding:16px 18px; backdrop-filter:blur(8px);
+  }
+  #diag h1 { font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--beam);
+    font-weight:600; margin-bottom:12px; }
+  #log { font-size:12.5px; line-height:1.7; white-space:pre-wrap; word-break:break-word; }
+  #log .ok::before  { content:"✔ "; color:var(--ok); }
+  #log .bad::before { content:"�’ "; color:var(--bad); }
+  #log .warn::before{ content:"› "; color:var(--warn); }
+  #log .ok{color:var(--ok);} #log .bad{color:var(--bad);} #log .warn{color:var(--warn);}
+  #log .dim{color:var(--muted);}
+  #verdict { margin-top:12px; font-size:13px; line-height:1.5; color:var(--ink);
+    border-top:1px solid rgba(138,147,194,.25); padding-top:12px; }
+  #buttons { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+  button { pointer-events:auto; font:inherit; font-size:13px; font-weight:700; letter-spacing:.03em;
+    border:0; border-radius:999px; padding:11px 20px; cursor:pointer; }
+  #recheck { color:var(--ink); background:rgba(79,227,255,.14); border:1px solid rgba(79,227,255,.4); }
+  #enter { color:var(--void); background:var(--beam); }
+  #enter:disabled { background:var(--muted); color:var(--void); cursor:default; opacity:.55; }
+  #score { position:absolute; top:22px; right:26px; text-align:right; }
+  #score .n{ font-size:36px; font-weight:700; line-height:1; color:var(--amber); }
+  #score .l{ font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--muted); }
+</style>
+
+<div id="hud">
+  <div id="score"><div class="n">0</div><div class="l">Alvos</div></div>
+  <div id="diag">
+    <h1>Diagnóstico WebXR</h1>
+    <div id="log"></div>
+    <div id="verdict" class="dim">Rodando verificações…</div>
+    <div id="buttons">
+      <button id="recheck">Re-verificar VR</button>
+      <button id="enter" disabled>Entrar em VR</button>
+    </div>
+  </div>
+</div>
+
+<!-- 1) Sink de erros + checagens básicas: roda mesmo se o Three.js falhar -->
+<script>
+  const logEl = document.getElementById("log");
+  const verdictEl = document.getElementById("verdict");
+  const enterBtn = document.getElementById("enter");
+  function line(cls, txt){ const d=document.createElement("div"); d.className=cls; d.textContent=txt; logEl.appendChild(d); }
+  window.__log = line;
+
+  addEventListener("error", (e)=> line("bad", "Erro JS: " + (e.message || e.error)));
+  addEventListener("unhandledrejection", (e)=> line("bad", "Promise rejeitada: " + (e.reason?.message || e.reason)));
+
+  async function checkVR(){
+    logEl.innerHTML = "";
+    // Contexto seguro (localhost ou https). file:// e http remoto reprovam.
+    if (window.isSecureContext) line("ok", "Contexto seguro (localhost/https) — ok");
+    else line("bad", "Contexto NÃO seguro — abra via http://localhost:porta, não com duplo-clique (file://)");
+
+    line("dim", "Origem: " + location.origin);
+
+    // API WebXR presente? (Chrome/Edge sim; Firefox desktop não)
+    if (!("xr" in navigator)) {
+      line("bad", "navigator.xr ausente — use Chrome ou Edge atualizados (Firefox desktop não tem WebXR)");
+      verdict(false, "no-api");
+      return;
+    }
+    line("ok", "navigator.xr presente — navegador ok");
+
+    // Runtime + headset prontos para sessão imersiva?
+    try {
+      const ok = await navigator.xr.isSessionSupported("immersive-vr");
+      if (ok) {
+        line("ok", "immersive-vr SUPORTADO — headset detectado!");
+        enterBtn.disabled = false;
+        verdict(true);
+      } else {
+        line("bad", "immersive-vr NÃO suportado — nenhum runtime de VR ativo agora");
+        enterBtn.disabled = true;
+        verdict(false, "no-runtime");
+      }
+    } catch (err) {
+      line("bad", "Erro ao checar sessão: " + err.message);
+      verdict(false, "no-runtime");
+    }
+    line("dim", "UA: " + navigator.userAgent.slice(0, 90) + "…");
+  }
+
+  function verdict(ready, reason){
+    if (ready){ verdictEl.style.color="var(--ok)"; verdictEl.textContent="Tudo pronto. Clique em \"Entrar em VR\"."; return; }
+    verdictEl.style.color="var(--ink)";
+    if (reason==="no-api")
+      verdictEl.textContent="Troque para Chrome ou Edge atualizados.";
+    else
+      verdictEl.innerHTML="Navegador ok, mas nenhum headset ativo. Verifique: (1) Link/Air Link LIGADO no headset agora; (2) app da Meta → OpenXR Runtime definido como \"Meta Quest Link\"; (3) clique <b>Re-verificar VR</b> depois de conectar o Link.";
+  }
+
+  document.getElementById("recheck").addEventListener("click", checkVR);
+  enterBtn.addEventListener("click", ()=> window.__enterVR && window.__enterVR());
+  checkVR();
+</script>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<!-- 2) Jogo (mesma cena de antes). Se o import falhar, o sink acima reporta. -->
+<script type="module">
+import * as THREE from "three";
+window.__log && window.__log("ok", "Three.js carregado — render ok");
+
+const PAL = { void:0x0b0f23, horizon:0x1b2750, amber:0xffb347, beam:0x4fe3ff };
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.xr.enabled = true;
+renderer.xr.setReferenceSpaceType("local-floor");
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(PAL.void);
+scene.fog = new THREE.Fog(PAL.void, 10, 38);
+
+const rig = new THREE.Group(); scene.add(rig);
+const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.05, 120);
+camera.position.set(0, 1.6, 0); rig.add(camera);
+
+scene.add(new THREE.HemisphereLight(0x99b0ff, 0x1a1030, 0.9));
+const key = new THREE.DirectionalLight(0xfff0d8, 1.1); key.position.set(4,8,2); scene.add(key);
+
+const grid = new THREE.GridHelper(80, 80, PAL.horizon, 0x121a38);
+grid.material.transparent=true; grid.material.opacity=0.55; scene.add(grid);
+const floor = new THREE.Mesh(new THREE.CircleGeometry(60,48),
+  new THREE.MeshStandardMaterial({ color:0x0d1430, roughness:1 }));
+floor.rotation.x=-Math.PI/2; floor.position.y=-0.01; scene.add(floor);
+for (let i=0;i<8;i++){ const a=(i/8)*Math.PI*2;
+  const p=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.22,3.4,12),
+    new THREE.MeshStandardMaterial({ color:0x223066, roughness:0.6 }));
+  p.position.set(Math.cos(a)*11,1.7,Math.sin(a)*11); scene.add(p); }
+
+const sCanvas=document.createElement("canvas"); sCanvas.width=512; sCanvas.height=256;
+const sCtx=sCanvas.getContext("2d"); const sTex=new THREE.CanvasTexture(sCanvas);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(1.6,0.8),
+  new THREE.MeshBasicMaterial({ map:sTex, transparent:true }));
+board.position.set(0,2.6,-4); scene.add(board);
+let score=0; const scoreEl=document.querySelector("#score .n");
+function drawScore(){ sCtx.clearRect(0,0,512,256); sCtx.fillStyle="rgba(11,15,35,.85)"; sCtx.fillRect(0,0,512,256);
+  sCtx.fillStyle="#ffb347"; sCtx.font="bold 150px ui-monospace,monospace"; sCtx.textAlign="center"; sCtx.textBaseline="middle";
+  sCtx.fillText(String(score),256,140); sCtx.fillStyle="#8a93c2"; sCtx.font="32px ui-monospace,monospace";
+  sCtx.fillText("ALVOS ATINGIDOS",256,40); sTex.needsUpdate=true; scoreEl.textContent=score; }
+drawScore();
+
+const TARGET_R=0.42; const targets=[]; const targetGeo=new THREE.IcosahedronGeometry(TARGET_R,1);
+function spawn(m){ const a=(Math.random()-0.5)*Math.PI*1.3; const d=3.5+Math.random()*6;
+  m.position.set(Math.sin(a)*d, 1.1+Math.random()*1.7, -Math.cos(a)*d);
+  m.userData.spin=(Math.random()-0.5)*1.5; m.userData.born=performance.now(); m.scale.setScalar(0.01); }
+for (let i=0;i<6;i++){ const m=new THREE.Mesh(targetGeo,
+  new THREE.MeshStandardMaterial({ color:PAL.amber, emissive:PAL.amber, emissiveIntensity:0.35, roughness:0.3 }));
+  spawn(m); scene.add(m); targets.push(m); }
+
+const shots=[]; const shotGeo=new THREE.SphereGeometry(0.07,12,12);
+const shotMat=new THREE.MeshBasicMaterial({ color:PAL.beam });
+function fire(origin,dir){ const s=new THREE.Mesh(shotGeo,shotMat); s.position.copy(origin);
+  s.userData.vel=dir.clone().normalize().multiplyScalar(18); s.userData.life=2.5; scene.add(s); shots.push(s); }
+
+const beamGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-1)]);
+function makeController(i){ const c=renderer.xr.getController(i);
+  const ln=new THREE.Line(beamGeo,new THREE.LineBasicMaterial({ color:PAL.beam })); ln.scale.z=6; c.add(ln);
+  c.addEventListener("selectstart",()=>{ const o=new THREE.Vector3(); c.getWorldPosition(o);
+    const dir=new THREE.Vector3(0,0,-1).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion())); fire(o,dir); });
+  rig.add(c); }
+makeController(0); makeController(1);
+
+let yaw=0,pitch=0,drag=false,lx=0,ly=0,moved=false;
+const presenting=()=>renderer.xr.isPresenting;
+addEventListener("pointerdown",(e)=>{ if(presenting()||e.target.closest("#diag"))return; drag=true; moved=false; lx=e.clientX; ly=e.clientY; });
+addEventListener("pointermove",(e)=>{ if(!drag)return; const dx=e.clientX-lx,dy=e.clientY-ly;
+  if(Math.abs(dx)+Math.abs(dy)>3)moved=true; yaw-=dx*0.004; pitch=Math.max(-1.2,Math.min(1.2,pitch-dy*0.004)); lx=e.clientX; ly=e.clientY; });
+addEventListener("pointerup",(e)=>{ if(presenting()||e.target.closest("#diag")){drag=false;return;}
+  if(drag&&!moved){ const dir=new THREE.Vector3(0,0,-1).applyEuler(camera.rotation);
+    const o=new THREE.Vector3(); camera.getWorldPosition(o); fire(o,dir);} drag=false; });
+
+window.__enterVR = async ()=>{
+  try {
+    const session = await navigator.xr.requestSession("immersive-vr",{ optionalFeatures:["local-floor","bounded-floor"] });
+    await renderer.xr.setSession(session);
+    window.__log && window.__log("ok","Sessão imersiva iniciada");
+  } catch(err){ window.__log && window.__log("bad","Falha ao entrar em VR: "+err.message); }
+};
+
+const clock=new THREE.Clock();
+renderer.setAnimationLoop(()=>{ const dt=Math.min(clock.getDelta(),0.05);
+  if(!presenting()) camera.rotation.set(pitch,yaw,0,"YXZ");
+  for(const t of targets){ t.rotation.y+=t.userData.spin*dt;
+    t.scale.setScalar(Math.min(1,(performance.now()-t.userData.born)/220)); }
+  board.lookAt(camera.getWorldPosition(new THREE.Vector3()));
+  for(let i=shots.length-1;i>=0;i--){ const s=shots[i];
+    s.position.addScaledVector(s.userData.vel,dt); s.userData.life-=dt; let hit=false;
+    for(const t of targets){ if(s.position.distanceTo(t.position)<TARGET_R+0.12){ score++; drawScore(); spawn(t); hit=true; break; } }
+    if(hit||s.userData.life<=0){ scene.remove(s); shots.splice(i,1); } }
+  renderer.render(scene,camera);
+});
+addEventListener("resize",()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+</script>
