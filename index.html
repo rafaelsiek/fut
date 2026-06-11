@@ -490,6 +490,55 @@ function controllerFieldPoint(c){
   return rayToField(origin,dir);
 }
 
+// ---------- locomoção pelos analógicos ----------
+const MOVE_SPEED=1.6;            // m/s
+const SNAP_ANGLE=Math.PI/4;      // 45° por toque
+let snapArmed=true;
+const UP=new THREE.Vector3(0,1,0);
+const _head=new THREE.Vector3(), _fwd=new THREE.Vector3(), _rightV=new THREE.Vector3();
+
+function snapTurn(angle){
+  // gira o rig em torno da CABEÇA (não da origem), pra você não orbitar pelo cenário
+  camera.getWorldPosition(_head);
+  const q=new THREE.Quaternion().setFromAxisAngle(UP,angle);
+  rig.position.sub(_head);
+  rig.position.applyQuaternion(q);
+  rig.position.add(_head);
+  rig.quaternion.premultiply(q);
+}
+
+function updateLocomotion(dt){
+  const session=renderer.xr.getSession();
+  if(!session) return;
+  for(const src of session.inputSources){
+    const gp=src.gamepad;
+    if(!gp) continue;
+    // mapeamento xr-standard: thumbstick em axes[2,3]; fallback p/ [0,1]
+    const x=(gp.axes.length>=4?gp.axes[2]:gp.axes[0])||0;
+    const y=(gp.axes.length>=4?gp.axes[3]:gp.axes[1])||0;
+
+    if(src.handedness==="left"){
+      // mover: direção relativa pra onde você está olhando (só no plano)
+      if(Math.hypot(x,y)>0.15){
+        camera.getWorldDirection(_fwd); _fwd.y=0;
+        if(_fwd.lengthSq()>1e-6){
+          _fwd.normalize();
+          _rightV.crossVectors(_fwd,UP);
+          rig.position.addScaledVector(_fwd,-y*MOVE_SPEED*dt);
+          rig.position.addScaledVector(_rightV,x*MOVE_SPEED*dt);
+        }
+      }
+    } else if(src.handedness==="right"){
+      // girar: snap turn de 45° (conforto); rearma ao centralizar o stick
+      if(snapArmed&&Math.abs(x)>0.6){
+        snapTurn(x>0?-SNAP_ANGLE:SNAP_ANGLE);
+        snapArmed=false;
+      }
+      if(Math.abs(x)<0.3) snapArmed=true;
+    }
+  }
+}
+
 // ---------- controles desktop ----------
 let yaw=0,pitch=-0.35,dragLook=false,lx=0,ly=0;
 const presenting=()=>renderer.xr.isPresenting;
@@ -531,6 +580,7 @@ const clock=new THREE.Clock();
 renderer.setAnimationLoop(()=>{
   const dt=Math.min(clock.getDelta(),0.05);
   if(!presenting()) camera.rotation.set(pitch,yaw,0,"YXZ");
+  else updateLocomotion(dt);
 
   // mira contínua em VR
   if(presenting()&&selected){
