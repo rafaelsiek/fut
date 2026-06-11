@@ -334,14 +334,12 @@ function checkGoal(){
 }
 
 // ---------- mira estilingue ----------
-const aimLine=new THREE.Line(
-  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),
-  new THREE.LineBasicMaterial({color:0xffd23f})
+// faixa de mira — mesh em vez de Line, porque linha do WebGL não tem espessura
+const aimBeam=new THREE.Mesh(
+  new THREE.BoxGeometry(1,1,1),
+  new THREE.MeshBasicMaterial({color:0xffd23f})
 );
-aimLine.visible=false; world.add(aimLine);
-const aimArrow=new THREE.Mesh(new THREE.ConeGeometry(0.018,0.05,10),
-  new THREE.MeshBasicMaterial({color:0xffd23f}));
-aimArrow.visible=false; world.add(aimArrow);
+aimBeam.visible=false; world.add(aimBeam);
 
 let selected=null;                 // disco amarelo em mira
 let pullPoint=new THREE.Vector2(); // ponto de puxada (coords do campo)
@@ -376,21 +374,15 @@ function moveAim(p){
   pullPoint.copy(p); updateAimVisual();
 }
 function updateAimVisual(){
-  if(!selected){ aimLine.visible=aimArrow.visible=false; return; }
-  const y=TABLE_Y+0.03;
-  const from=new THREE.Vector3(pullPoint.x,y,pullPoint.y);
-  const to=new THREE.Vector3(selected.pos.x,y,selected.pos.y);
-  aimLine.geometry.setFromPoints([from,to]);
-  aimLine.visible=true;
-  // seta na direção do disparo
-  const dir=new THREE.Vector2(selected.pos.x-pullPoint.x,selected.pos.y-pullPoint.y);
-  const len=Math.min(dir.length(),0.5);
-  if(len>0.02){
-    const n=dir.clone().normalize();
-    aimArrow.position.set(selected.pos.x+n.x*(len*0.8+0.06),y,selected.pos.y+n.y*(len*0.8+0.06));
-    aimArrow.rotation.set(Math.PI/2,0,Math.atan2(-n.x,-n.y)+Math.PI);
-    aimArrow.visible=true;
-  } else aimArrow.visible=false;
+  if(!selected){ aimBeam.visible=false; return; }
+  const y=TABLE_Y+0.012;
+  const dx=selected.pos.x-pullPoint.x, dz=selected.pos.y-pullPoint.y;
+  const len=Math.hypot(dx,dz);
+  if(len<0.015){ aimBeam.visible=false; return; }
+  aimBeam.position.set((selected.pos.x+pullPoint.x)/2,y,(selected.pos.y+pullPoint.y)/2);
+  aimBeam.scale.set(0.016,0.007,len);   // largura, altura, comprimento da faixa
+  aimBeam.rotation.y=Math.atan2(dx,dz);
+  aimBeam.visible=true;
 }
 function releaseAim(){
   if(!selected) return;
@@ -402,7 +394,7 @@ function releaseAim(){
     setTurnUI("Jogada em andamento…");
     pulseHaptics(0.6,80);
   }
-  selected=null; aimLine.visible=aimArrow.visible=false;
+  selected=null; aimBeam.visible=false;
 }
 
 // ---------- IA (Argentina) ----------
