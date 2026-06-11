@@ -491,13 +491,12 @@ function controllerFieldPoint(c){
 }
 
 // ---------- locomoção pelos analógicos ----------
-const MOVE_SPEED=1.6;            // m/s
-const SNAP_ANGLE=Math.PI/4;      // 45° por toque
-let snapArmed=true;
+const MOVE_SPEED=1.6;                              // m/s
+const TURN_SPEED=THREE.MathUtils.degToRad(120);    // graus/s no giro suave
 const UP=new THREE.Vector3(0,1,0);
 const _head=new THREE.Vector3(), _fwd=new THREE.Vector3(), _rightV=new THREE.Vector3();
 
-function snapTurn(angle){
+function turnRig(angle){
   // gira o rig em torno da CABEÇA (não da origem), pra você não orbitar pelo cenário
   camera.getWorldPosition(_head);
   const q=new THREE.Quaternion().setFromAxisAngle(UP,angle);
@@ -529,12 +528,10 @@ function updateLocomotion(dt){
         }
       }
     } else if(src.handedness==="right"){
-      // girar: snap turn de 45° (conforto); rearma ao centralizar o stick
-      if(snapArmed&&Math.abs(x)>0.6){
-        snapTurn(x>0?-SNAP_ANGLE:SNAP_ANGLE);
-        snapArmed=false;
+      // girar: rotação suave contínua, estilo FPS — proporcional à inclinação do stick
+      if(Math.abs(x)>0.12){
+        turnRig(-x*TURN_SPEED*dt);
       }
-      if(Math.abs(x)<0.3) snapArmed=true;
     }
   }
 }
