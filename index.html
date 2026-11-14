@@ -1,82 +1,214 @@
 <!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Futebol de Botão VR — Brasil x Argentina</title>
+<title>Ultimate Mega Hiper Copa Brasileira de Botão</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&display=swap" media="print" onload="this.media='all'">
 <style>
   :root {
-    --void:#081209; --felt:#1c6b34; --bra:#ffd23f; --arg:#4f9bff;
-    --ink:#eef5ee; --muted:#8fae93; --ok:#5ddc9b; --bad:#ff6b7d; --line:#f2f6f0;
+    --void:#081209; --felt:#1c6b34; --gold:#ffd23f;
+    --ink:#eef5ee; --muted:#8fae93; --ok:#5ddc9b; --bad:#ff6b7d;
+    --hair:rgba(143,174,147,.28);
+    --display:"Anton",Impact,"Haettenschweiler","Arial Narrow Bold",sans-serif;
   }
   * { margin:0; box-sizing:border-box; }
   html,body { height:100%; background:var(--void); overflow:hidden; }
   canvas { display:block; }
   #hud { position:fixed; inset:0; pointer-events:none;
     font-family:ui-monospace,"SF Mono",Menlo,monospace; color:var(--ink); }
+  .hidden { display:none !important; }
 
+  /* escudo simplificado: só as duas cores do uniforme */
+  .chip { flex:none; width:18px; height:18px; border-radius:50%;
+    background:#888; box-shadow:0 0 0 1px rgba(255,255,255,.4); }
+
+  /* ---------- placar da partida ---------- */
   #scorebar {
     position:absolute; top:18px; left:50%; transform:translateX(-50%);
-    display:flex; align-items:center; gap:14px;
+    display:flex; align-items:center; gap:12px; white-space:nowrap;
     background:rgba(5,12,6,.88); border:1px solid rgba(242,246,240,.18);
-    border-radius:999px; padding:10px 22px; backdrop-filter:blur(8px);
+    border-radius:999px; padding:10px 20px; backdrop-filter:blur(8px);
   }
   #scorebar .team { font-size:13px; letter-spacing:.14em; font-weight:700; }
-  #scorebar .bra { color:var(--bra); } #scorebar .arg { color:var(--arg); }
-  #scorebar .pts { font-size:26px; font-weight:700; }
-  #turn { position:absolute; top:74px; left:50%; transform:translateX(-50%);
-    font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); }
+  #scorebar .pts { font-size:26px; font-weight:700; color:var(--gold); }
+  #scorebar .x { color:var(--muted); }
+  #stage, #turn { position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap;
+    font-size:11px; letter-spacing:.18em; text-transform:uppercase; }
+  #stage { top:78px; color:var(--muted); }
+  #turn  { top:100px; color:var(--ink); font-size:12px; }
 
-  #diag {
-    pointer-events:auto; position:absolute; left:18px; bottom:18px; width:min(380px,calc(100vw - 36px));
-    background:rgba(5,12,6,.9); border:1px solid rgba(143,174,147,.35); border-radius:14px;
-    padding:14px 16px; backdrop-filter:blur(8px);
+  /* ---------- telas: início, copa, pausa ---------- */
+  #menu {
+    pointer-events:auto; position:absolute; inset:0; overflow-y:auto;
+    display:flex; padding:16px;
+    background:radial-gradient(ellipse at center, rgba(8,18,9,.6), rgba(4,9,5,.94));
+    backdrop-filter:blur(3px);
   }
-  #diag h1 { font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted);
-    font-weight:600; margin-bottom:8px; }
-  #log { font-size:12px; line-height:1.65; }
+  .card {
+    margin:auto; width:min(620px,100%); background:rgba(5,12,6,.94);
+    border:1px solid var(--hair); border-radius:18px; padding:26px 26px 22px;
+  }
+  .card.wide { width:min(880px,100%); }
+  .view { display:none; } .view.on { display:block; }
+  .kicker { font-size:11px; letter-spacing:.24em; text-transform:uppercase; color:var(--gold); }
+  .title { font-family:var(--display); font-weight:400; text-transform:uppercase;
+    font-size:clamp(40px,8vw,64px); line-height:.98; letter-spacing:.01em; margin:8px 0 12px; }
+  .title em { font-style:normal; color:var(--gold); }
+  .headline { font-family:var(--display); font-weight:400; text-transform:uppercase;
+    font-size:clamp(32px,6vw,48px); line-height:1; margin:8px 0 16px; }
+  .sub { font-size:12.5px; line-height:1.6; color:var(--muted); margin-bottom:22px; }
+  .label { font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+
+  button { pointer-events:auto; font:inherit; font-weight:700; letter-spacing:.03em;
+    border:0; border-radius:999px; cursor:pointer; }
+  button:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
+
+  #teamGrid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:22px; }
+  @media (max-width:560px){ #teamGrid { grid-template-columns:repeat(2,1fr); } }
+  .tbtn { display:flex; align-items:center; gap:8px; text-align:left; min-height:42px;
+    font-size:12px; font-weight:600; letter-spacing:0; line-height:1.2; padding:8px 10px;
+    border-radius:10px; color:var(--ink); background:rgba(143,174,147,.07); border:1px solid var(--hair); }
+  .tbtn:hover { background:rgba(143,174,147,.16); }
+  .tbtn.on { border-color:var(--gold); background:rgba(255,210,63,.14); box-shadow:inset 0 0 0 1px var(--gold); }
+
+  #ialevel { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:8px; }
+  .lvl { font-size:12px; padding:9px 4px; color:var(--muted);
+    background:transparent; border:1px solid rgba(143,174,147,.35); }
+  .lvl.on { color:#08230f; background:var(--gold); border-color:var(--gold); }
+  .lvl[data-l="impossivel"].on { background:var(--bad); border-color:var(--bad); color:#fff; }
+  .hint { font-size:11.5px; line-height:1.5; color:var(--muted); margin-bottom:22px; }
+
+  .actions { display:flex; flex-direction:column; gap:10px; }
+  .actions.row { flex-direction:row; flex-wrap:wrap; align-items:center; }
+  .actions.row .primary { flex:1 1 220px; }
+  .primary { font-size:15px; padding:15px 20px; color:#08230f; background:var(--gold); }
+  .primary:hover { filter:brightness(1.07); }
+  .primary:disabled { background:rgba(143,174,147,.25); color:var(--muted); cursor:default; filter:none; }
+  .secondary { font-size:13.5px; padding:13px 20px; color:var(--ink);
+    background:rgba(143,174,147,.12); border:1px solid rgba(143,174,147,.38); }
+  .secondary:disabled { opacity:.4; cursor:default; }
+  .link { font-size:12px; padding:8px 10px; color:var(--muted); background:transparent; text-decoration:underline; }
+  .vrbtn { display:none; } body.has-vr .vrbtn { display:block; }
+
+  .next { display:flex; align-items:center; flex-wrap:wrap; gap:10px;
+    font-size:18px; font-weight:700; margin-bottom:8px; }
+  .next .x { color:var(--muted); font-weight:400; }
+  .meta { font-size:12px; line-height:1.5; letter-spacing:.06em; color:var(--muted); margin-bottom:20px; }
+
+  /* ---------- chaveamento ---------- */
+  #bracket { display:flex; gap:10px; margin-top:24px; padding-top:18px;
+    border-top:1px solid var(--hair); overflow-x:auto; }
+  .bcol { flex:1 0 124px; display:flex; flex-direction:column; }
+  .bcol h3 { font-size:10px; font-weight:600; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--muted); margin-bottom:8px; }
+  .bcol.now h3 { color:var(--gold); }
+  .bcol .ms { flex:1; display:flex; flex-direction:column; justify-content:space-around; gap:6px; }
+  .bm { border:1px solid var(--hair); border-radius:8px; overflow:hidden; background:rgba(143,174,147,.05); }
+  .bm.mine { border-color:rgba(255,210,63,.65); }
+  .trow { display:flex; align-items:center; gap:6px; padding:4px 7px; font-size:11.5px; color:var(--muted); }
+  .trow + .trow { border-top:1px solid rgba(143,174,147,.14); }
+  .trow .chip { width:12px; height:12px; }
+  .trow .tn { flex:1; letter-spacing:.06em; }
+  .trow .tg { font-weight:700; }
+  .trow.win { color:var(--ink); font-weight:700; }
+  .trow.me .tn { color:var(--gold); }
+  .trow.lost { opacity:.5; }
+  .trow.tbd .chip { visibility:hidden; }
+
+  #help { font-size:12px; line-height:1.65; color:var(--muted); margin-top:20px;
+    border-top:1px solid rgba(143,174,147,.22); padding-top:14px; }
+  #help b { color:var(--ink); }
+  #log { font-size:11.5px; line-height:1.6; margin-top:10px; }
+  #log:empty { display:none; }
   #log .ok{color:var(--ok);} #log .bad{color:var(--bad);} #log .dim{color:var(--muted);}
   #log .ok::before{content:"✔ ";} #log .bad::before{content:"✖ ";}
-  #help { font-size:12px; line-height:1.6; color:var(--muted); margin-top:8px;
-    border-top:1px solid rgba(143,174,147,.25); padding-top:8px; }
-  #help b { color:var(--ink); }
-  #buttons { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
-  button { pointer-events:auto; font:inherit; font-size:12.5px; font-weight:700; letter-spacing:.03em;
-    border:0; border-radius:999px; padding:10px 18px; cursor:pointer; }
-  #recheck { color:var(--ink); background:rgba(143,174,147,.16); border:1px solid rgba(143,174,147,.4); }
-  #enter { color:#08230f; background:var(--bra); }
-  #enter:disabled { background:var(--muted); cursor:default; opacity:.55; }
-  #ialevel { display:flex; align-items:center; gap:6px; margin-top:10px; flex-wrap:wrap; }
-  #ialevel span { font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
-  .lvl { font-size:11.5px; padding:7px 12px; color:var(--muted);
-    background:transparent; border:1px solid rgba(143,174,147,.35); }
-  .lvl.on { color:#08230f; background:var(--arg); border-color:var(--arg); }
-  .lvl[data-l="impossivel"].on { background:var(--bad); border-color:var(--bad); color:#fff; }
+
+  #pausehint { position:absolute; left:18px; bottom:16px; font-size:11px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--muted); opacity:.75; }
+  #power { position:absolute; left:50%; bottom:28px; transform:translateX(-50%);
+    display:flex; align-items:center; gap:12px; padding:10px 16px;
+    background:rgba(5,12,6,.85); border:1px solid rgba(242,246,240,.15); border-radius:999px; }
+  #power .lbl { font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); }
+  #power .track { width:180px; height:8px; border-radius:99px; background:rgba(255,255,255,.1); overflow:hidden; }
+  #power .fill { height:100%; width:0; border-radius:99px; background:var(--ok); }
+  #power .pct { font-size:14px; font-weight:700; min-width:44px; text-align:right; }
 </style>
 
 <div id="hud">
-  <div id="scorebar">
-    <span class="team bra">BRA</span><span class="pts" id="sBra">0</span>
-    <span style="color:var(--muted)">×</span>
-    <span class="pts" id="sArg">0</span><span class="team arg">ARG</span>
+  <div id="scorebar" class="hidden">
+    <span class="chip" id="chipA"></span><span class="team" id="abbrA">—</span>
+    <span class="pts" id="sBra">0</span><span class="x">×</span><span class="pts" id="sArg">0</span>
+    <span class="team" id="abbrB">—</span><span class="chip" id="chipB"></span>
   </div>
-  <div id="turn">Sua vez — Brasil</div>
-  <div id="diag">
-    <h1>Futebol de Botão VR</h1>
-    <div id="log"></div>
-    <div id="help">
-      <b>No Quest:</b> aponte pra um botão <b>amarelo</b>, segure o <b>gatilho</b>,
-      puxe pra trás (estilingue) e solte.<br>
-      <b>No PC:</b> arraste a partir de um botão amarelo pra mirar; arraste no vazio pra olhar.
-    </div>
-    <div id="buttons">
-      <button id="recheck">Re-verificar VR</button>
-      <button id="enter" disabled>Entrar em VR</button>
-    </div>
-    <div id="ialevel">
-      <span>IA:</span>
-      <button class="lvl" data-l="facil">Fácil</button>
-      <button class="lvl on" data-l="medio">Médio</button>
-      <button class="lvl" data-l="dificil">Difícil</button>
-      <button class="lvl" data-l="impossivel">Impossível</button>
+  <div id="stage" class="hidden"></div>
+  <div id="turn" class="hidden"></div>
+  <div id="pausehint" class="hidden">Esc — pausar</div>
+  <div id="power" class="hidden">
+    <span class="lbl">Força</span>
+    <div class="track"><div class="fill" id="powerFill"></div></div>
+    <span class="pct" id="powerPct">0%</span>
+  </div>
+
+  <div id="menu">
+    <div class="card" id="card">
+
+      <!-- início: escolha do time e da dificuldade -->
+      <section class="view on" id="viewHome">
+        <div class="kicker">Ultimate Mega Hiper</div>
+        <h1 class="title">Copa Brasileira<br><em>de Botão</em></h1>
+        <p class="sub">Os 20 clubes da Série A em mata-mata de jogo único. Perdeu, está fora.</p>
+
+        <div class="label">Seu time</div>
+        <div id="teamGrid"></div>
+
+        <div class="label">Dificuldade do primeiro jogo</div>
+        <div id="ialevel">
+          <button class="lvl" data-l="facil">Fácil</button>
+          <button class="lvl on" data-l="medio">Médio</button>
+          <button class="lvl" data-l="dificil">Difícil</button>
+          <button class="lvl" data-l="impossivel">Impossível</button>
+        </div>
+        <p class="hint" id="lvlHint"></p>
+
+        <div class="actions">
+          <button class="primary" id="startCup" disabled>Escolha um time para começar</button>
+          <button class="secondary vrbtn" id="startCupVR" disabled>Começar em VR</button>
+        </div>
+
+        <div id="help">
+          <b>PC:</b> arraste a partir de um botão do seu time para chutar · arraste no vazio para olhar ·
+          WASD/setas movem · Q/E descem/sobem · Shift corre · scroll dá zoom · Esc pausa.<br>
+          <b>Quest:</b> aponte para um botão do seu time, segure o gatilho, puxe para trás e solte ·
+          analógico esquerdo anda, direito gira.
+        </div>
+      </section>
+
+      <!-- copa: próximo jogo, resultado e chaveamento -->
+      <section class="view" id="viewCup">
+        <div class="kicker" id="cupKicker"></div>
+        <h2 class="headline" id="cupHeadline"></h2>
+        <div class="next" id="cupNext"></div>
+        <p class="meta" id="cupMeta"></p>
+        <div class="actions row">
+          <button class="primary" id="cupPlay">Jogar</button>
+          <button class="secondary vrbtn" id="cupPlayVR">Jogar em VR</button>
+          <button class="link" id="cupQuit">Trocar de time</button>
+        </div>
+        <div id="bracket"></div>
+      </section>
+
+      <!-- pausa -->
+      <section class="view" id="viewPause">
+        <div class="kicker">Jogo pausado</div>
+        <h2 class="headline" id="pauseHeadline"></h2>
+        <p class="meta" id="pauseMeta"></p>
+        <div class="actions row">
+          <button class="primary" id="resume">Continuar</button>
+          <button class="secondary vrbtn" id="resumeVR">Continuar em VR</button>
+          <button class="link" id="pauseQuit">Abandonar a copa</button>
+        </div>
+      </section>
+
+      <div id="log"></div>
     </div>
   </div>
 </div>
@@ -87,20 +219,15 @@
   window.__log=line;
   addEventListener("error",(e)=>line("bad","Erro JS: "+(e.message||e.error)));
   addEventListener("unhandledrejection",(e)=>line("bad","Promise: "+(e.reason?.message||e.reason)));
-  const enterBtn=document.getElementById("enter");
+  // os botões de VR só aparecem quando há headset disponível
   async function checkVR(){
-    logEl.innerHTML="";
-    if(!window.isSecureContext) line("bad","Contexto não seguro — use https/localhost");
-    if(!("xr" in navigator)){ line("bad","Sem WebXR — use Chrome/Edge ou o navegador do Quest"); return; }
-    try{
-      const ok=await navigator.xr.isSessionSupported("immersive-vr");
-      if(ok){ line("ok","VR pronta — toque em Entrar em VR"); enterBtn.disabled=false; }
-      else { line("bad","Nenhum headset ativo (no PC é esperado; abra no Quest)"); enterBtn.disabled=true; }
-    }catch(err){ line("bad","Checagem falhou: "+err.message); }
+    let ok=false;
+    try{ ok=!!(navigator.xr&&await navigator.xr.isSessionSupported("immersive-vr")); }catch(e){}
+    document.body.classList.toggle("has-vr",ok);
   }
-  document.getElementById("recheck").addEventListener("click",checkVR);
-  enterBtn.addEventListener("click",()=>window.__enterVR&&window.__enterVR());
+  document.querySelectorAll(".vrbtn").forEach(b=>b.addEventListener("click",()=>window.__enterVR&&window.__enterVR()));
   checkVR();
+  navigator.xr&&navigator.xr.addEventListener&&navigator.xr.addEventListener("devicechange",checkVR);
 </script>
 
 <script type="importmap">
@@ -109,7 +236,6 @@
 
 <script type="module">
 import * as THREE from "three";
-window.__log&&window.__log("ok","Three.js carregado");
 
 // ---------- dimensões do jogo (metros) ----------
 const FIELD_L = 2.2, FIELD_W = 1.3;          // comprimento (z) x largura (x)
@@ -151,7 +277,7 @@ const floor=new THREE.Mesh(new THREE.CircleGeometry(20,48),
 floor.rotation.x=-Math.PI/2; scene.add(floor);
 
 // ---------- mesa + campo ----------
-// grupo do mundo do jogo; jogador fica na ponta +z (gol do Brasil perto dele)
+// grupo do mundo do jogo; jogador fica na ponta +z (seu gol perto dele)
 const world=new THREE.Group();
 world.position.set(0,0,-1.45);
 scene.add(world);
@@ -228,8 +354,117 @@ function goal(zs){
 }
 goal(-1); goal(1);
 
+// ---------- clubes da Série A 2026 (nome + cores do uniforme) ----------
+const TEAMS=[
+  {abbr:"CAP",name:"Athletico Paranaense",c1:0xc8102e,c2:0x1a1a1a},
+  {abbr:"CAM",name:"Atlético Mineiro",    c1:0x1a1a1a,c2:0xf5f5f5},
+  {abbr:"BAH",name:"Bahia",               c1:0x0a5ec2,c2:0xd81e2c},
+  {abbr:"BOT",name:"Botafogo",            c1:0x1a1a1a,c2:0xf5f5f5},
+  {abbr:"CHA",name:"Chapecoense",         c1:0x00913f,c2:0xf5f5f5},
+  {abbr:"COR",name:"Corinthians",         c1:0xf5f5f5,c2:0x1a1a1a},
+  {abbr:"CFC",name:"Coritiba",            c1:0xf5f5f5,c2:0x00593f},
+  {abbr:"CRU",name:"Cruzeiro",            c1:0x1746a2,c2:0xf5f5f5},
+  {abbr:"FLA",name:"Flamengo",            c1:0xc8102e,c2:0x1a1a1a},
+  {abbr:"FLU",name:"Fluminense",          c1:0x7a1235,c2:0x0b6b3a},
+  {abbr:"GRE",name:"Grêmio",              c1:0x0d80bf,c2:0x1a1a1a},
+  {abbr:"INT",name:"Internacional",       c1:0xe30613,c2:0xf5f5f5},
+  {abbr:"MIR",name:"Mirassol",            c1:0xffd100,c2:0x007a33},
+  {abbr:"PAL",name:"Palmeiras",           c1:0x006437,c2:0xf5f5f5},
+  {abbr:"RBB",name:"Red Bull Bragantino", c1:0xf5f5f5,c2:0xd2003c},
+  {abbr:"REM",name:"Remo",                c1:0x0b1f4b,c2:0xf5f5f5},
+  {abbr:"SAN",name:"Santos",              c1:0xf5f5f5,c2:0x1a1a1a},
+  {abbr:"SAO",name:"São Paulo",           c1:0xf5f5f5,c2:0xe30613},
+  {abbr:"VAS",name:"Vasco da Gama",       c1:0x1a1a1a,c2:0xf5f5f5},
+  {abbr:"VIT",name:"Vitória",             c1:0xd8121b,c2:0x1a1a1a},
+];
+const css=hex=>"#"+hex.toString(16).padStart(6,"0");
+function colorDist(a,b){
+  return Math.hypot((a>>16&255)-(b>>16&255),(a>>8&255)-(b>>8&255),(a&255)-(b&255))/255;
+}
+// uniformes da partida: se as cores se confundem com as suas, o adversário troca de camisa
+// (ordem de tentativa: titular, reserva com as cores invertidas, branco, preto)
+function pickKits(home,away){
+  const h={body:home.c1,ring:home.c2};
+  const opts=[{body:away.c1,ring:away.c2},{body:away.c2,ring:away.c1},
+              {body:0xf5f5f5,ring:away.c1},{body:0x1a1a1a,ring:away.c1}];
+  return [h,opts.find(o=>colorDist(h.body,o.body)>=0.4)||opts[0]];
+}
+
+// ---------- copa: motor ----------
+// 20 clubes: 8 jogam os 16 avos (o seu sempre entre eles) e 12 entram direto nas oitavas
+const ROUNDS=[
+  {name:"16 avos de final",short:"16 avos",target:3},
+  {name:"Oitavas de final",short:"Oitavas",target:5},
+  {name:"Quartas de final",short:"Quartas",target:5},
+  {name:"Semifinal",       short:"Semi",   target:5},
+  {name:"Final",           short:"Final",  target:5},
+];
+const LEVELS=["facil","medio","dificil","impossivel"];
+const LEVEL_NAME={facil:"Fácil",medio:"Médio",dificil:"Difícil",impossivel:"Impossível"};
+// 1º jogo no nível escolhido · oitavas até a semi um acima · final dois acima
+function levelForRound(base,ri){
+  const bump=ri===0?0:(ri===ROUNDS.length-1?2:1);
+  return LEVELS[Math.min(LEVELS.length-1,LEVELS.indexOf(base)+bump)];
+}
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+const newTie=(a=null,b=null)=>({a,b,ga:null,gb:null,w:null});
+function createCup(me,base){
+  const others=shuffle(TEAMS.map((_,i)=>i).filter(i=>i!==me));
+  const prelim=shuffle([me,...others.slice(0,7)]);
+  const byes=others.slice(7);
+  const rounds=[[],[],[],[],[]];
+  for(let i=0;i<4;i++) rounds[0].push(newTie(prelim[2*i],prelim[2*i+1]));
+  for(let i=0;i<4;i++){
+    rounds[1].push(newTie(null,byes[i]));              // vencedor do jogo i dos 16 avos × clube que entrou direto
+    rounds[1].push(newTie(byes[4+2*i],byes[5+2*i]));
+  }
+  for(let i=0;i<4;i++) rounds[2].push(newTie());
+  for(let i=0;i<2;i++) rounds[3].push(newTie());
+  rounds[4].push(newTie());
+  return {me,base,round:0,rounds,over:false,champion:null};
+}
+function cupMatch(c){ return c.rounds[c.round].find(m=>m.a===c.me||m.b===c.me); }
+function cupOpponent(c){ const m=cupMatch(c); return m.a===c.me?m.b:m.a; }
+function feedWinner(c,ri,mi,w){
+  if(ri===ROUNDS.length-1){ c.champion=w; return; }
+  if(ri===0) c.rounds[1][2*mi].a=w;
+  else c.rounds[ri+1][mi>>1][mi%2?"b":"a"]=w;
+}
+// fecha a rodada: sorteia o placar dos jogos sem você e leva os vencedores adiante
+function finishRound(c,ri){
+  const target=ROUNDS[ri].target;
+  c.rounds[ri].forEach((m,mi)=>{
+    if(m.w===null){
+      const aWins=Math.random()<0.5, loser=Math.floor(Math.random()*target);
+      m.ga=aWins?target:loser; m.gb=aWins?loser:target; m.w=aWins?m.a:m.b;
+    }
+    feedWinner(c,ri,mi,m.w);
+  });
+}
+function recordMyResult(c,myGoals,theirGoals){
+  const ri=c.round, m=cupMatch(c), meIsA=m.a===c.me, won=myGoals>theirGoals;
+  m.ga=meIsA?myGoals:theirGoals; m.gb=meIsA?theirGoals:myGoals;
+  m.w=won?c.me:(meIsA?m.b:m.a);
+  finishRound(c,ri);
+  if(!won){
+    c.over=true;
+    for(let r=ri+1;r<ROUNDS.length;r++) finishRound(c,r);   // a copa segue sem você até sair o campeão
+  } else if(ri===ROUNDS.length-1) c.over=true;
+  else c.round++;
+  return won;
+}
+// ---------- copa: fim do motor ----------
+
+// estado da copa e da partida em andamento
+let cup=null, selectedTeam=null, baseLevel="medio";
+let matchLive=false, matchTarget=3, oppIdx=null, kits=null, stageLabel="", lastResult=null, overAt=0;
+const oppName=()=>oppIdx===null?"Adversário":TEAMS[oppIdx].name;
+
 // ---------- discos ----------
-// jogador (Brasil) ataca o gol em z=-FIELD_L/2; Argentina ataca z=+FIELD_L/2
+// seu time ataca o gol em z=-FIELD_L/2; o adversário ataca z=+FIELD_L/2
 const discs=[];
 function makeDisc(color,ringColor,radius,height,team){
   const g=new THREE.Group();
@@ -239,18 +474,33 @@ function makeDisc(color,ringColor,radius,height,team){
   const ring=new THREE.Mesh(new THREE.TorusGeometry(radius*0.62,radius*0.1,8,24),
     new THREE.MeshStandardMaterial({color:ringColor,roughness:0.4}));
   ring.rotation.x=Math.PI/2; ring.position.y=height+0.001;
-  g.add(body,ring);
+  // sombra: destaca o botão do gramado, inclusive os uniformes verdes e escuros
+  const shadow=new THREE.Mesh(new THREE.CircleGeometry(radius*1.16,28),
+    new THREE.MeshBasicMaterial({color:0x04140a,transparent:true,opacity:0.45,depthWrite:false}));
+  shadow.rotation.x=-Math.PI/2; shadow.position.y=0.0022;
+  g.add(body,ring,shadow);
+  // halo: marca os botões que você pode jogar na sua vez (funciona com qualquer cor de time)
+  let halo=null;
+  if(team==="player"){
+    halo=new THREE.Mesh(new THREE.RingGeometry(radius*1.24,radius*1.5,36),
+      new THREE.MeshBasicMaterial({color:0xffe066,transparent:true,opacity:0.7,depthWrite:false}));
+    halo.rotation.x=-Math.PI/2; halo.position.y=0.003; halo.visible=false;
+    g.add(halo);
+  }
   world.add(g);
-  const d={group:g,body,team,radius,mass:team==="ball"?0.25:1,
-    pos:new THREE.Vector2(),vel:new THREE.Vector2(),baseEmissive:0};
+  const d={group:g,body,ring,halo,team,radius,mass:team==="ball"?0.25:1,
+    pos:new THREE.Vector2(),vel:new THREE.Vector2()};
   discs.push(d); return d;
+}
+function applyKit(list,kit){
+  for(const d of list){ d.body.material.color.setHex(kit.body); d.ring.material.color.setHex(kit.ring); }
 }
 const FORM={ // [x, z] em fração do campo; z>0 = lado do jogador
   player:[[0,0.86],[-0.30,0.45],[0.30,0.45],[-0.16,0.14],[0.16,0.14]],
   ai:    [[0,-0.86],[-0.30,-0.45],[0.30,-0.45],[-0.16,-0.14],[0.16,-0.14]],
 };
 const playerDiscs=FORM.player.map(()=>makeDisc(0xffd23f,0x1c6b34,BTN_R,BTN_H,"player"));
-const aiDiscs=FORM.ai.map(()=>makeDisc(0x4f9bff,0xf5f5f5,BTN_R,BTN_H,"ai"));
+const aiDiscs=FORM.ai.map(()=>makeDisc(0x9aa5a0,0xf5f5f5,BTN_R,BTN_H,"ai"));
 const ball=makeDisc(0xf5f5f5,0xcccccc,BALL_R,BALL_R*1.4,"ball");
 ball.body.material.roughness=0.2;
 
@@ -267,32 +517,67 @@ let scoreBra=0,scoreArg=0;
 const sBra=document.getElementById("sBra"),sArg=document.getElementById("sArg");
 const turnEl=document.getElementById("turn");
 // painel flutuante (visível dentro da VR)
-const bc=document.createElement("canvas"); bc.width=640; bc.height=200;
+const bc=document.createElement("canvas"); bc.width=800; bc.height=400;
 const bx=bc.getContext("2d"); const bTex=new THREE.CanvasTexture(bc);
-const board=new THREE.Mesh(new THREE.PlaneGeometry(1.5,0.47),
+const board=new THREE.Mesh(new THREE.PlaneGeometry(1.8,0.9),
   new THREE.MeshBasicMaterial({map:bTex,transparent:true}));
-board.position.set(0,1.9,-FIELD_L/2-0.5); world.add(board);
-function drawBoard(msg){
-  bx.clearRect(0,0,640,200);
-  bx.fillStyle="rgba(5,12,6,.88)"; bx.fillRect(0,0,640,200);
+board.position.set(0,2.0,-FIELD_L/2-0.5); world.add(board);
+const MONO="ui-monospace,Menlo,monospace";
+function boardBase(){
+  bx.clearRect(0,0,800,400);
+  bx.fillStyle="rgba(5,12,6,.9)"; bx.fillRect(0,0,800,400);
   bx.textAlign="center"; bx.textBaseline="middle";
-  bx.font="bold 84px ui-monospace,monospace";
-  bx.fillStyle="#ffd23f"; bx.fillText(String(scoreBra),200,78);
-  bx.fillStyle="#8fae93"; bx.fillText("×",320,78);
-  bx.fillStyle="#4f9bff"; bx.fillText(String(scoreArg),440,78);
-  bx.font="28px ui-monospace,monospace"; bx.fillStyle="#eef5ee";
-  bx.fillText(msg,320,160);
+}
+function boardText(txt,y,size,color,weight=""){
+  // diminui a fonte até caber na largura do painel
+  for(let s=size;s>=14;s-=2){ bx.font=`${weight} ${s}px ${MONO}`; if(bx.measureText(txt).width<=740) break; }
+  bx.fillStyle=color; bx.fillText(txt,400,y);
+}
+function boardChip(x,y,kit){
+  bx.beginPath(); bx.arc(x,y,26,0,Math.PI*2);
+  bx.fillStyle=css(kit.body); bx.fill();
+  bx.lineWidth=2; bx.strokeStyle="rgba(255,255,255,.45)"; bx.stroke();
+  bx.beginPath(); bx.arc(x,y,13,0,Math.PI*2);
+  bx.lineWidth=7; bx.strokeStyle=css(kit.ring); bx.stroke();
+}
+// painel de texto livre: título, linhas e rodapé (entre um jogo e outro)
+function drawBoardLines(title,lines,footer){
+  boardBase();
+  boardText(title,80,56,"#ffd23f","bold");
+  lines.forEach((l,i)=>boardText(l,170+i*62,i===0?44:32,"#eef5ee",i===0?"bold":""));
+  if(footer) boardText(footer,350,24,"#8fae93");
+  bTex.needsUpdate=true;
+}
+// painel da partida: fase, placar e de quem é a vez
+function drawBoard(msg){
+  if(!cup||oppIdx===null){ drawBoardLines("ULTIMATE MEGA HIPER",["Copa Brasileira de Botão"],""); return; }
+  boardBase();
+  boardText(stageLabel,52,24,"#8fae93");
+  boardChip(52,170,kits[0]); boardChip(748,170,kits[1]);
+  bx.font=`bold 56px ${MONO}`; bx.fillStyle="#eef5ee";
+  bx.fillText(TEAMS[cup.me].abbr,160,172); bx.fillText(TEAMS[oppIdx].abbr,640,172);
+  bx.font=`bold 88px ${MONO}`; bx.fillStyle="#ffd23f";
+  bx.fillText(scoreBra+" × "+scoreArg,400,174);
+  boardText(msg,310,30,"#eef5ee");
   bTex.needsUpdate=true;
 }
 function setTurnUI(msg){ turnEl.textContent=msg; drawBoard(msg); }
 function syncScore(){ sBra.textContent=scoreBra; sArg.textContent=scoreArg; }
-syncScore(); 
+syncScore();
 
 // ---------- estado ----------
-// "player" -> mira/atira; "sim" -> física rolando; "ai" -> IA atira; "goal" -> pausa pós-gol
-let state="player";
+// "player" -> mira/atira; "sim" -> física rolando; "ai" -> IA atira; "goal" -> pausa pós-gol;
+// "over" -> entre um jogo e outro da copa
+let state="over";
+let paused=true, matchId=0;   // o jogo nasce parado, esperando o menu
+// regra da saída de bola: o primeiro chute depois de um gol (ou do início) não pode virar gol direto
+let kickoff=true, shotIsKickoff=false;
+function turnMsg(team){
+  const k=kickoff?" (saída: não vale gol direto)":"";
+  return team==="player"?"Sua vez"+k:oppName()+" joga"+k;
+}
 let nextTurn="ai";
-setTurnUI("Sua vez — Brasil");
+drawBoard("");
 
 function allStopped(){
   return discs.every(d=>d.vel.lengthSq()<STOP_EPS*STOP_EPS);
@@ -369,8 +654,8 @@ function checkGoal(){
   const cross=GOAL_LINE+LINE_HALF_W+BALL_R;
   const z=ball.pos.y;
   if(Math.abs(ball.pos.x)<GOAL_W/2){
-    if(z<=-cross){ return "bra"; }   // gol do Brasil (fundo da Argentina)
-    if(z>= cross){ return "arg"; }   // gol da Argentina
+    if(z<=-cross){ return "bra"; }   // gol do seu time (no fundo do adversário)
+    if(z>= cross){ return "arg"; }   // gol do adversário
   }
   return null;
 }
@@ -382,8 +667,29 @@ const aimBeam=new THREE.Mesh(
   new THREE.MeshBasicMaterial({color:0xffd23f})
 );
 aimBeam.visible=false; world.add(aimBeam);
+// trilho escuro com o comprimento da força máxima: a faixa colorida "enche" dentro dele
+const aimTrack=new THREE.Mesh(
+  new THREE.BoxGeometry(1,1,1),
+  new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.35})
+);
+aimTrack.visible=false; world.add(aimTrack);
 
-let selected=null;                 // disco amarelo em mira
+const PULL_GAIN=5.5;                       // metros puxados -> velocidade do disparo
+const MAX_PULL=MAX_POWER/PULL_GAIN;        // puxada que já dá força máxima
+const MIN_SHOT=0.15;                       // abaixo disso o chute nem sai
+const C_WEAK=new THREE.Color(0x8fae93), C_LOW=new THREE.Color(0x5ddc9b),
+      C_MID=new THREE.Color(0xffd23f),  C_HIGH=new THREE.Color(0xff4d4d);
+const powerEl=document.getElementById("power"),
+      powerFill=document.getElementById("powerFill"),
+      powerPct=document.getElementById("powerPct");
+let wasMax=false;
+function powerColor(frac,speed){
+  if(speed<MIN_SHOT) return C_WEAK.clone();
+  return frac<0.5 ? C_LOW.clone().lerp(C_MID,frac/0.5) : C_MID.clone().lerp(C_HIGH,(frac-0.5)/0.5);
+}
+function hidePower(){ aimBeam.visible=aimTrack.visible=false; powerEl.classList.add("hidden"); wasMax=false; }
+
+let selected=null;                 // botão do seu time em mira
 let pullPoint=new THREE.Vector2(); // ponto de puxada (coords do campo)
 
 const raycaster=new THREE.Raycaster();
@@ -407,7 +713,7 @@ function pickPlayerDisc(p){
   return best;
 }
 function startAim(p){
-  if(state!=="player") return;
+  if(state!=="player"||paused) return;
   const d=pickPlayerDisc(p);
   if(d){ selected=d; pullPoint.copy(p); updateAimVisual(); }
 }
@@ -416,148 +722,305 @@ function moveAim(p){
   pullPoint.copy(p); updateAimVisual();
 }
 function updateAimVisual(){
-  if(!selected){ aimBeam.visible=false; return; }
+  if(!selected){ hidePower(); return; }
   const y=TABLE_Y+0.012;
   const dx=selected.pos.x-pullPoint.x, dz=selected.pos.y-pullPoint.y;
   const len=Math.hypot(dx,dz);
-  if(len<0.015){ aimBeam.visible=false; return; }
-  aimBeam.position.set((selected.pos.x+pullPoint.x)/2,y,(selected.pos.y+pullPoint.y)/2);
-  aimBeam.scale.set(0.016,0.007,len);   // largura, altura, comprimento da faixa
-  aimBeam.rotation.y=Math.atan2(dx,dz);
-  aimBeam.visible=true;
+  if(len<0.015){ aimBeam.visible=aimTrack.visible=false; return; }
+  const bx=-dx/len, bz=-dz/len;                     // do botão em direção à mão (pra trás)
+  const fillLen=Math.min(len,MAX_PULL);
+  const speed=Math.min(len*PULL_GAIN,MAX_POWER), frac=speed/MAX_POWER;
+  const rotY=Math.atan2(dx,dz);
+  // trilho: sempre do tamanho da força máxima
+  aimTrack.position.set(selected.pos.x+bx*MAX_PULL/2,y-0.002,selected.pos.y+bz*MAX_PULL/2);
+  aimTrack.scale.set(0.024,0.004,MAX_PULL); aimTrack.rotation.y=rotY; aimTrack.visible=true;
+  // faixa: enche conforme a força, para no máximo
+  aimBeam.position.set(selected.pos.x+bx*fillLen/2,y,selected.pos.y+bz*fillLen/2);
+  aimBeam.scale.set(0.016,0.007,fillLen); aimBeam.rotation.y=rotY;
+  const col=powerColor(frac,speed);
+  aimBeam.material.color.copy(col); aimBeam.visible=true;
+  // medidor na tela (PC)
+  if(!presenting()){
+    powerEl.classList.remove("hidden");
+    powerFill.style.width=(frac*100).toFixed(0)+"%";
+    powerFill.style.background="#"+col.getHexString();
+    powerPct.textContent=speed<MIN_SHOT?"—":Math.round(frac*100)+"%";
+    powerPct.style.color="#"+col.getHexString();
+  }
+  // vibraçãozinha no controle quando chega na força máxima
+  if(frac>=0.999&&!wasMax){ pulseHaptics(0.25,40); wasMax=true; }
+  if(frac<0.97) wasMax=false;
 }
 function releaseAim(){
   if(!selected) return;
-  const impulse=new THREE.Vector2(selected.pos.x-pullPoint.x,selected.pos.y-pullPoint.y).multiplyScalar(5.5);
+  const impulse=new THREE.Vector2(selected.pos.x-pullPoint.x,selected.pos.y-pullPoint.y).multiplyScalar(PULL_GAIN);
   if(impulse.length()>MAX_POWER) impulse.setLength(MAX_POWER);
-  if(impulse.length()>0.15){
+  if(impulse.length()>MIN_SHOT){
     selected.vel.copy(impulse);
+    physAcc=0;
+    shotIsKickoff=kickoff; kickoff=false;
     state="sim"; nextTurn="ai";
     setTurnUI("Jogada em andamento…");
     pulseHaptics(0.6,80);
   }
-  selected=null; aimBeam.visible=false;
+  selected=null; hidePower();
 }
 
-// ---------- IA (Argentina) ----------
+// ---------- IA (adversário) ----------
 let aiTimer=0;
 let difficulty="medio";
 const DIFFICULTY={
-  facil:      {noise:0.50, powMin:0.9, powMax:1.6, smart:false, randomPick:0.4},
-  medio:      {noise:0.22, powMin:1.4, powMax:2.3, smart:false, randomPick:0},
-  dificil:    {noise:0.06, powMin:1.8, powMax:2.6, smart:true,  randomPick:0},
-  impossivel: {sim:true},
+  // calibrado em teste: jogadas da IA (sem defesa) por gol ≈ fácil 10 · médio 4 · difícil 3 · impossível 1
+  facil:      {mode:"plan",  noise:0.13},
+  medio:      {mode:"plan",  noise:0.06},
+  dificil:    {mode:"plan",  noise:0.02},
+  impossivel: {mode:"sim"},
 };
 document.querySelectorAll(".lvl").forEach(b=>{
-  b.addEventListener("click",()=>{
-    difficulty=b.dataset.l;
-    document.querySelectorAll(".lvl").forEach(x=>x.classList.toggle("on",x===b));
-  });
+  b.addEventListener("click",()=>setBaseLevel(b.dataset.l));   // o nível de cada jogo sai da fase da copa
 });
 
-// distância de um ponto p ao segmento a->b (pra detectar bloqueio na linha do chute)
+// física com passo FIXO: o jogo real e as simulações da IA andam exatamente igual
+const PHYS_DT=1/180, SIM_STEPS=720;   // 720 passos = 4 s de jogada
+let physAcc=0;
+
+// distância de um ponto p ao segmento a->b
 function segDist(p,a,b){
   const abx=b.x-a.x, aby=b.y-a.y;
   const t=Math.max(0,Math.min(1,((p.x-a.x)*abx+(p.y-a.y)*aby)/(abx*abx+aby*aby||1)));
   return Math.hypot(p.x-(a.x+abx*t),p.y-(a.y+aby*t));
 }
-function pathBlocked(shooter,target){
+function pathClear(from,to,exclude,clear){
   for(const o of discs){
-    if(o===shooter||o===ball) continue;
-    if(segDist(o.pos,shooter.pos,target)<o.radius+shooter.radius*0.9) return true;
+    if(exclude.includes(o)) continue;
+    if(segDist(o.pos,from,to)<o.radius+clear) return false;
   }
-  return false;
+  return true;
+}
+function rotate(v,ang){ const c=Math.cos(ang),s=Math.sin(ang); return new THREE.Vector2(v.x*c-v.y*s,v.x*s+v.y*c); }
+
+// alvos: espalhados pela boca do gol, um pouco além da linha (cantos inclusos)
+function goalTargets(sign){
+  return [-0.16,-0.08,0,0.08,0.16].map(x=>new THREE.Vector2(x,sign*(GOAL_LINE+0.1)));
+}
+// direção que o botão precisa seguir pra bater na bola e mandá-la no alvo
+function aimDir(shooter,target){
+  const bd=new THREE.Vector2().subVectors(target,ball.pos);
+  if(bd.lengthSq()<1e-8) return null;
+  bd.normalize();
+  const contact=ball.pos.clone().addScaledVector(bd,-(BALL_R+shooter.radius));
+  const dir=new THREE.Vector2().subVectors(contact,shooter.pos);
+  if(dir.length()<1e-4) return null;
+  dir.normalize();
+  const align=dir.dot(bd);              // 1 = batida reta, perto de 0 = de raspão
+  if(align<0.3) return null;            // botão está "na frente" da bola: não dá
+  return {dir,contact,align};
+}
+// lista de chutes possíveis de um time, do mais promissor pro menos
+function planShots(team,sign){
+  const out=[];
+  for(const d of team){
+    for(const t of goalTargets(sign)){
+      const a=aimDir(d,t); if(!a) continue;
+      const clearToBall=pathClear(d.pos,a.contact,[d,ball],d.radius*0.95);
+      const clearToGoal=pathClear(ball.pos,t,[d,ball],BALL_R*0.95);
+      const dist=d.pos.distanceTo(ball.pos)+ball.pos.distanceTo(t);
+      const score=(clearToBall?0:-4)+(clearToGoal?0:-2)-dist*1.2+a.align;
+      out.push({d,dir:a.dir,power:MAX_POWER,score});
+    }
+  }
+  return out.sort((x,y)=>y.score-x.score);
 }
 
-// roda a jogada no motor de física de verdade e devolve o resultado (modo Impossível)
+function fireAi(d,dir,power,msg){
+  aiJob=null;
+  d.vel.copy(dir.clone().normalize().multiplyScalar(Math.min(power,MAX_POWER)));
+  physAcc=0;
+  shotIsKickoff=kickoff; kickoff=false;
+  state="sim"; nextTurn="player";
+  setTurnUI(msg||oppName()+" jogou…");
+}
+
+// roda a jogada no motor de física real (mesmo passo do jogo) e desfaz tudo no fim
 function simulateShot(shooter,dir,power){
   const snap=discs.map(d=>({p:d.pos.clone(),v:d.vel.clone()}));
   shooter.vel.copy(dir.clone().multiplyScalar(power));
   let goalFor=false, goalAgainst=false, steps=0;
-  for(let t=0;t<320;t++){
-    physStep(0.008); steps=t;
+  for(let t=0;t<SIM_STEPS;t++){
+    physStep(PHYS_DT); steps=t;
     const g=checkGoal();
     if(g==="arg"){ goalFor=true; break; }
     if(g==="bra"){ goalAgainst=true; break; }
     if(discs.every(d=>d.vel.lengthSq()<STOP_EPS*STOP_EPS)) break;
   }
-  const ballZ=ball.pos.y;
+  const bx=ball.pos.x, bz=ball.pos.y;
   discs.forEach((d,i)=>{ d.pos.copy(snap[i].p); d.vel.copy(snap[i].v); });
-  return {goalFor,goalAgainst,steps,ballZ};
+  return {goalFor,goalAgainst,steps,bx,bz};
 }
-function aiShootSimulated(){
-  let best=null;
-  for(const d of aiDiscs){
+// quão boa pra IA é a bola parada em (bx,bz): perto e de frente pro seu gol
+function ballValue(bx,bz){ return -Math.hypot(bx*1.4,GOAL_LINE-bz)*100; }
+
+// ---- Impossível: busca completa + defesa, fatiada entre frames pra não travar a VR ----
+let aiJob=null;
+function shotCandidates(team,sign,sweep){
+  const c=[];
+  for(const p of planShots(team,sign))
+    for(const j of [-0.012,0,0.012]) for(const pw of [MAX_POWER,2.0])
+      c.push({d:p.d,dir:rotate(p.dir,j),power:pw});
+  for(const d of team){
     const base=Math.atan2(ball.pos.x-d.pos.x,ball.pos.y-d.pos.y);
-    for(let a=-8;a<=8;a++){
+    for(let a=-sweep;a<=sweep;a++){
       const ang=base+a*0.07;
-      const dir=new THREE.Vector2(Math.sin(ang),Math.cos(ang));
-      for(const power of [1.7,2.6]){
-        const r=simulateShot(d,dir,power);
-        const sc=r.goalFor?(10000-r.steps):(r.goalAgainst?-10000:r.ballZ*100);
-        if(!best||sc>best.sc) best={d,dir:dir.clone(),power,sc};
+      c.push({d,dir:new THREE.Vector2(Math.sin(ang),Math.cos(ang)),power:MAX_POWER});
+    }
+  }
+  return c;
+}
+function startAiJob(){
+  const cands=shotCandidates(aiDiscs,1,6).map(c=>({...c,atk:0}));
+  aiJob={phase:1,i:0,cands,results:[],top:null,ti:0};
+  setTurnUI(oppName()+" está pensando…");
+}
+function processAiJob(){
+  const t0=performance.now();
+  while(aiJob&&performance.now()-t0<7){
+    if(aiJob.phase===1){
+      if(aiJob.i>=aiJob.cands.length){
+        aiJob.results.sort((a,b)=>b.atk-a.atk);
+        aiJob.top=aiJob.results.slice(0,6);
+        aiJob.phase=2; aiJob.ti=0;
+        continue;
+      }
+      const c=aiJob.cands[aiJob.i++];
+      const r=simulateShot(c.d,c.dir,c.power);
+      c.atk=r.goalFor?(10000-r.steps):(r.goalAgainst?-10000:ballValue(r.bx,r.bz));
+      if(r.goalFor&&kickoff) c.atk=-10000;   // na saída, gol direto é anulado: inútil
+      else if(r.goalFor){ fireAi(c.d,c.dir,c.power,oppName()+" jogou… cuidado."); return; } // gol garantido
+      aiJob.results.push(c);
+    } else {
+      if(aiJob.ti>=aiJob.top.length){
+        let best=null;
+        for(const c of aiJob.top){
+          const sc=c.atk-(c.threat?6000:0);
+          if(!best||sc>best.sc){ best=c; best.sc=sc; }
+        }
+        fireAi(best.d,best.dir,best.power); return;
+      }
+      const c=aiJob.top[aiJob.ti];
+      if(!c.post){
+        // aplica o candidato e congela o estado pós-jogada
+        c.preSnap=discs.map(d=>({p:d.pos.clone(),v:d.vel.clone()}));
+        c.d.vel.copy(c.dir.clone().multiplyScalar(c.power));
+        for(let t=0;t<SIM_STEPS;t++){
+          physStep(PHYS_DT);
+          if(checkGoal()) break;
+          if(discs.every(d=>d.vel.lengthSq()<STOP_EPS*STOP_EPS)) break;
+        }
+        c.post=true; c.threat=false; c.j=0;
+        c.replies=planShots(playerDiscs,-1).slice(0,15);
+      }
+      if(c.j<c.replies.length&&!c.threat){
+        // o jogador tem resposta que vira gol a partir daqui?
+        const rep=c.replies[c.j++];
+        const r=simulateShot(rep.d,rep.dir,rep.power);
+        if(r.goalAgainst) c.threat=true;
+      } else {
+        discs.forEach((d,i)=>{ d.pos.copy(c.preSnap[i].p); d.vel.copy(c.preSnap[i].v); });
+        c.post=false; c.preSnap=null; c.replies=null;
+        aiJob.ti++;
       }
     }
   }
-  best.d.vel.copy(best.dir.multiplyScalar(best.power));
-  state="sim"; nextTurn="player";
-  setTurnUI(best.sc>5000?"Argentina jogou… cuidado.":"Argentina jogou…");
+}
+
+// saída de bola da IA (fácil/médio/difícil): testa jogadas e escolhe a que avança mais sem entrar direto
+function aiKickoff(){
+  const cfg=DIFFICULTY[difficulty];
+  const cands=[];
+  for(const p of planShots(aiDiscs,1).slice(0,8))
+    for(const j of [-0.012,0,0.012]) for(const pw of [MAX_POWER,2.0,1.5])
+      cands.push({d:p.d,dir:rotate(p.dir,j),power:pw});
+  for(const d of aiDiscs){
+    const base=Math.atan2(ball.pos.x-d.pos.x,ball.pos.y-d.pos.y);
+    for(let a=-4;a<=4;a++){ const ang=base+a*0.07; cands.push({d,dir:new THREE.Vector2(Math.sin(ang),Math.cos(ang)),power:2.0}); }
+  }
+  for(const c of cands){
+    const r=simulateShot(c.d,c.dir,c.power);
+    c.sc=(r.goalFor||r.goalAgainst)?-1e5:ballValue(r.bx,r.bz);
+  }
+  cands.sort((a,b)=>b.sc-a.sc);
+  const spread=cfg.noise>0.1?6:cfg.noise>0.05?3:1;   // fácil escolhe pior, difícil a melhor
+  const pick=cands[Math.floor(Math.random()*Math.min(spread,cands.length))];
+  fireAi(pick.d,rotate(pick.dir,(Math.random()-0.5)*cfg.noise),pick.power);
 }
 
 function aiShoot(){
   const cfg=DIFFICULTY[difficulty];
-  if(cfg.sim){ aiShootSimulated(); return; }
-
+  if(kickoff){ aiKickoff(); return; }
+  if(cfg.mode==="plan"){
+    const plans=planShots(aiDiscs,1);
+    if(plans.length){
+      // médio às vezes escolhe a 2ª/3ª melhor opção; difícil sempre a melhor
+      const pick=cfg.noise>0.05?plans[Math.min(plans.length-1,Math.floor(Math.random()*2.2))]:plans[0];
+      fireAi(pick.d,rotate(pick.dir,(Math.random()-0.5)*2*cfg.noise),pick.power);
+      return;
+    }
+  }
+  // fácil (ou ninguém atrás da bola): lógica simples de empurrar a bola pra frente
   const goalPos=new THREE.Vector2(0,GOAL_LINE);
   let best=null,bestScore=-1e9;
   for(const d of aiDiscs){
     const toBall=new THREE.Vector2().subVectors(ball.pos,d.pos);
-    const distBall=toBall.length();
     const ballToGoal=new THREE.Vector2().subVectors(goalPos,ball.pos).normalize();
-    const align=toBall.clone().normalize().dot(ballToGoal); // 1 = perfeitamente atrás da bola
-    let s=align*2-distBall;
-    if(cfg.smart&&pathBlocked(d,ball.pos)) s-=3;  // difícil: evita linhas de chute bloqueadas
+    const s=toBall.clone().normalize().dot(ballToGoal)*2-toBall.length();
     if(s>bestScore){bestScore=s;best=d;}
   }
   if(cfg.randomPick&&Math.random()<cfg.randomPick)
-    best=aiDiscs[Math.floor(Math.random()*aiDiscs.length)]; // fácil: às vezes joga "qualquer um"
-  if(!best){ endSimTurn(); return; }
-  // ponto de contato: lado da bola oposto ao gol
+    best=aiDiscs[Math.floor(Math.random()*aiDiscs.length)];
   const ballToGoal=new THREE.Vector2().subVectors(goalPos,ball.pos).normalize();
   const contact=ball.pos.clone().addScaledVector(ballToGoal,-(BALL_R+best.radius)*0.9);
-  const dir=new THREE.Vector2().subVectors(contact,best.pos).normalize();
-  // imprecisão conforme o nível
-  const ang=(Math.random()-0.5)*2*cfg.noise;
-  const cos=Math.cos(ang),sin=Math.sin(ang);
-  dir.set(dir.x*cos-dir.y*sin,dir.x*sin+dir.y*cos);
-  let power=cfg.powMin+Math.random()*(cfg.powMax-cfg.powMin);
-  if(cfg.smart){ // difícil: força calibrada pela distância total da jogada
-    const dist=best.pos.distanceTo(ball.pos)+ball.pos.distanceTo(goalPos);
-    power=Math.min(MAX_POWER,1.1+dist*1.1);
-  }
-  best.vel.copy(dir.multiplyScalar(Math.min(power,MAX_POWER)));
-  state="sim"; nextTurn="player";
-  setTurnUI("Argentina jogou…");
+  const dir=rotate(new THREE.Vector2().subVectors(contact,best.pos).normalize(),(Math.random()-0.5)*2*(cfg.noise||0.2));
+  const power=cfg.powMin!==undefined?cfg.powMin+Math.random()*(cfg.powMax-cfg.powMin):2.2;
+  fireAi(best,dir,power);
 }
 
 function endSimTurn(){
   const g=checkGoal();
+  if(g&&shotIsKickoff){
+    // gol direto da saída de bola: anulado, e a bola vai pro adversário de quem chutou
+    const kicker=nextTurn==="ai"?"player":"ai";
+    setTurnUI("Gol anulado! Não vale gol direto da saída");
+    pulseHaptics(0.4,150);
+    state="goal";
+    const myMatch=matchId;
+    setTimeout(()=>{
+      if(myMatch!==matchId) return;
+      resetPositions(); kickoff=true;
+      if(kicker==="player"){ state="ai"; aiTimer=0.9; setTurnUI(turnMsg("ai")); }
+      else { state="player"; setTurnUI(turnMsg("player")); }
+    },2000);
+    return;
+  }
   if(g){
-    if(g==="bra"){scoreBra++; setTurnUI("⚽ GOL DO BRASIL!");}
-    else {scoreArg++; setTurnUI("Gol da Argentina…");}
-    syncScore(); drawBoard(g==="bra"?"GOOOL DO BRASIL!":"Gol da Argentina…");
+    if(g==="bra"){ scoreBra++; setTurnUI("⚽ GOL — "+TEAMS[cup.me].name+"!"); }
+    else { scoreArg++; setTurnUI("Gol — "+oppName()); }
+    syncScore();
     pulseHaptics(g==="bra"?1:0.3,g==="bra"?250:120);
     state="goal";
+    const myMatch=matchId;
+    const ended=scoreBra>=matchTarget||scoreArg>=matchTarget;   // alguém chegou na meta de gols
     setTimeout(()=>{
-      resetPositions();
+      if(myMatch!==matchId) return;   // partida abandonada nesse meio-tempo
+      if(ended){ finishMatch(); return; }
+      resetPositions(); kickoff=true;
       // quem sofreu o gol recomeça
-      if(g==="bra"){ state="ai"; aiTimer=0.9; setTurnUI("Vez da Argentina"); }
-      else { state="player"; setTurnUI("Sua vez — Brasil"); }
+      if(g==="bra"){ state="ai"; aiTimer=0.9; setTurnUI(turnMsg("ai")); }
+      else { state="player"; setTurnUI(turnMsg("player")); }
     },1800);
     return;
   }
-  if(nextTurn==="ai"){ state="ai"; aiTimer=0.9; setTurnUI("Vez da Argentina"); }
-  else { state="player"; setTurnUI("Sua vez — Brasil"); }
+  if(nextTurn==="ai"){ state="ai"; aiTimer=0.9; setTurnUI(turnMsg("ai")); }
+  else { state="player"; setTurnUI(turnMsg("player")); }
 }
 
 // ---------- haptics ----------
@@ -580,6 +1043,7 @@ function setupController(i){
   beam.scale.z=3; c.add(beam);
   c.userData.aiming=false;
   c.addEventListener("selectstart",()=>{
+    if(state==="over"){ vrContinue(); return; }   // entre os jogos, o gatilho segue a copa
     const p=controllerFieldPoint(c);
     if(p){ startAim(p); c.userData.aiming=!!selected; }
   });
@@ -663,9 +1127,214 @@ function calibrateOnEntry(){
   needCalib=false;
 }
 
+// ---------- interface: início, copa e pausa ----------
+const $=id=>document.getElementById(id);
+const menuEl=$("menu"), cardEl=$("card"), pauseHint=$("pausehint");
+const scorebarEl=$("scorebar"), stageEl=$("stage");
+const VIEWS={home:$("viewHome"),cup:$("viewCup"),pause:$("viewPause")};
+const chipBg=kit=>`radial-gradient(circle,${css(kit.body)} 0 26%,${css(kit.ring)} 30% 54%,${css(kit.body)} 58%)`;
+const chipHTML=kit=>`<span class="chip" style="background:${chipBg(kit)}"></span>`;
+const homeKit=t=>({body:t.c1,ring:t.c2});
+function remember(k,v){ try{ localStorage.setItem("copa-botao-"+k,v); }catch(e){} }
+function recall(k){ try{ return localStorage.getItem("copa-botao-"+k); }catch(e){ return null; } }
+
+// grade de clubes
+const teamGrid=$("teamGrid");
+TEAMS.forEach((t,i)=>{
+  const b=document.createElement("button");
+  b.className="tbtn"; b.dataset.i=i;
+  b.innerHTML=chipHTML(homeKit(t))+`<span>${t.name}</span>`;
+  b.addEventListener("click",()=>selectTeam(i));
+  teamGrid.appendChild(b);
+});
+function selectTeam(i){
+  selectedTeam=i;
+  teamGrid.querySelectorAll(".tbtn").forEach(b=>b.classList.toggle("on",+b.dataset.i===i));
+  $("startCup").disabled=false; $("startCupVR").disabled=false;
+  $("startCup").textContent="Começar a copa com "+TEAMS[i].name;
+  applyKit(playerDiscs,homeKit(TEAMS[i]));   // já veste os botões na mesa ao fundo
+  remember("team",TEAMS[i].abbr);
+}
+function setBaseLevel(l){
+  baseLevel=l;
+  document.querySelectorAll(".lvl").forEach(x=>x.classList.toggle("on",x.dataset.l===l));
+  $("lvlHint").textContent=`16 avos no ${LEVEL_NAME[levelForRound(l,0)]} · oitavas até a semi no `+
+    `${LEVEL_NAME[levelForRound(l,1)]} · final no ${LEVEL_NAME[levelForRound(l,4)]}`;
+  remember("level",l);
+}
+{ // retoma o time e o nível da última visita
+  const l=recall("level"); setBaseLevel(LEVELS.includes(l)?l:"medio");
+  const t=TEAMS.findIndex(t=>t.abbr===recall("team")); if(t>=0) selectTeam(t);
+}
+
+function openView(v){
+  paused=true;
+  keys.clear(); dragLook=false;
+  if(selected){ selected=null; hidePower(); }
+  for(const k in VIEWS) VIEWS[k].classList.toggle("on",k===v);
+  cardEl.classList.toggle("wide",v==="cup");
+  menuEl.classList.remove("hidden"); menuEl.scrollTop=0;
+  for(const el of [scorebarEl,stageEl,turnEl,pauseHint]) el.classList.add("hidden");
+}
+function closeMenu(){
+  paused=false;
+  menuEl.classList.add("hidden");
+  for(const el of [scorebarEl,stageEl,turnEl]) el.classList.remove("hidden");
+  pauseHint.classList.toggle("hidden",presenting());
+}
+
+// prepara a partida da fase atual: adversário, uniformes, meta de gols e nível da IA
+function setupMatch(){
+  const ri=cup.round, me=TEAMS[cup.me];
+  oppIdx=cupOpponent(cup);
+  matchTarget=ROUNDS[ri].target;
+  difficulty=levelForRound(cup.base,ri);
+  kits=pickKits(me,TEAMS[oppIdx]);
+  applyKit(playerDiscs,kits[0]); applyKit(aiDiscs,kits[1]);
+  stageLabel=`${ROUNDS[ri].name} · primeiro a ${matchTarget} gols`;
+  $("abbrA").textContent=me.abbr; $("abbrB").textContent=TEAMS[oppIdx].abbr;
+  $("chipA").style.background=chipBg(kits[0]); $("chipB").style.background=chipBg(kits[1]);
+  stageEl.textContent=stageLabel;
+  matchId++;
+  aiJob=null; selected=null; hidePower();
+  scoreBra=0; scoreArg=0; syncScore();
+  resetPositions(); kickoff=true; shotIsKickoff=false;
+  state="player"; nextTurn="ai"; matchLive=true;
+  setTurnUI(turnMsg("player"));
+}
+// alguém chegou na meta: registra o resultado, fecha a rodada e mostra o que vem depois
+function finishMatch(){
+  const ri=cup.round, opp=oppIdx, my=scoreBra, their=scoreArg;
+  matchLive=false; state="over"; overAt=performance.now();
+  const won=recordMyResult(cup,my,their);
+  lastResult={won,ri,opp,my,their};
+  if(presenting()) drawBoardBetween(); else showCup();
+}
+const scoreLine=r=>`${TEAMS[cup.me].abbr} ${r.my} × ${r.their} ${TEAMS[r.opp].abbr}`;
+function startCup(){ cup=createCup(selectedTeam,baseLevel); lastResult=null; oppIdx=null; }
+function abandonCup(){
+  matchId++; matchLive=false; state="over"; aiJob=null;
+  cup=null; oppIdx=null; lastResult=null;
+  drawBoard(""); openView("home");
+}
+
+function teamRow(idx,goals,isWinner,played){
+  if(idx===null) return `<div class="trow tbd"><span class="chip"></span><span class="tn">—</span><span class="tg"></span></div>`;
+  const t=TEAMS[idx], cls=(isWinner?" win":"")+(idx===cup.me?" me":"")+(played&&!isWinner?" lost":"");
+  return `<div class="trow${cls}">${chipHTML(homeKit(t))}<span class="tn">${t.abbr}</span><span class="tg">${goals??""}</span></div>`;
+}
+function renderBracket(){
+  const el=$("bracket"); el.innerHTML="";
+  cup.rounds.forEach((ties,ri)=>{
+    const col=document.createElement("div");
+    col.className="bcol"+(!cup.over&&ri===cup.round?" now":"");
+    col.innerHTML=`<h3>${ROUNDS[ri].short}</h3><div class="ms">`+ties.map(m=>{
+      const mine=m.a===cup.me||m.b===cup.me, played=m.w!==null;
+      return `<div class="bm${mine?" mine":""}">`+
+        teamRow(m.a,m.ga,played&&m.w===m.a,played)+teamRow(m.b,m.gb,played&&m.w===m.b,played)+`</div>`;
+    }).join("")+`</div>`;
+    el.appendChild(col);
+  });
+}
+function showCup(){
+  const me=TEAMS[cup.me];
+  let kicker,headline,next,meta,primary;
+  if(!cup.over){
+    const ri=cup.round, opp=TEAMS[cupOpponent(cup)], k=pickKits(me,opp);
+    kicker=lastResult?`Vitória · ${scoreLine(lastResult)} · você avançou`:"Sorteio feito · seu primeiro jogo";
+    headline=ROUNDS[ri].name;
+    next=`${chipHTML(k[0])}<span>${me.name}</span><span class="x">×</span><span>${opp.name}</span>${chipHTML(k[1])}`;
+    meta=`Primeiro a ${ROUNDS[ri].target} gols · IA no nível ${LEVEL_NAME[levelForRound(cup.base,ri)]}`;
+    primary="Jogar";
+  } else if(cup.champion===cup.me){
+    kicker=`Final · ${scoreLine(lastResult)}`;
+    headline="Campeão!";
+    next=`${chipHTML(homeKit(me))}<span>${me.name} levanta a taça</span>`;
+    meta="A Ultimate Mega Hiper Copa Brasileira de Botão é sua.";
+    primary="Jogar outra copa";
+  } else {
+    const champ=TEAMS[cup.champion];
+    kicker=`${ROUNDS[lastResult.ri].name} · ${scoreLine(lastResult)}`;
+    headline="Eliminado";
+    next=`${chipHTML(homeKit(champ))}<span>Campeão desta edição: ${champ.name}</span>`;
+    meta="Mata-mata de jogo único não tem volta. Uma copa nova sorteia tudo de novo.";
+    primary="Tentar de novo";
+  }
+  $("cupKicker").textContent=kicker; $("cupHeadline").textContent=headline;
+  $("cupNext").innerHTML=next; $("cupMeta").textContent=meta;
+  $("cupPlay").textContent=primary; $("cupPlayVR").textContent=primary+" em VR";
+  renderBracket();
+  openView("cup");
+}
+function showPause(){
+  $("pauseHeadline").textContent=`${TEAMS[cup.me].abbr} ${scoreBra} × ${scoreArg} ${TEAMS[oppIdx].abbr}`;
+  $("pauseMeta").textContent=`${stageLabel} · IA no nível ${LEVEL_NAME[difficulty]}`;
+  openView("pause");
+}
+// dentro da VR não há menu: o painel flutuante conta o resultado e o gatilho segue a copa
+function drawBoardBetween(){
+  const r=lastResult, me=TEAMS[cup.me];
+  if(cup.over&&cup.champion===cup.me)
+    drawBoardLines("CAMPEÃO!",[scoreLine(r),me.name+" levanta a taça"],"Aperte o gatilho para jogar outra copa");
+  else if(cup.over)
+    drawBoardLines("ELIMINADO",[scoreLine(r),"Campeão desta edição: "+TEAMS[cup.champion].name],"Aperte o gatilho para tentar de novo");
+  else {
+    const ri=cup.round;
+    drawBoardLines("VITÓRIA · "+scoreLine(r),[ROUNDS[ri].name+": "+TEAMS[cupOpponent(cup)].name,
+      `primeiro a ${ROUNDS[ri].target} gols · IA ${LEVEL_NAME[levelForRound(cup.base,ri)]}`],"Aperte o gatilho para continuar");
+  }
+}
+function vrContinue(){
+  if(!presenting()||!cup||matchLive) return;
+  if(performance.now()-overAt<1200) return;   // evita pular a tela com um gatilho já apertado
+  if(cup.over) startCup();
+  setupMatch();
+}
+
+$("startCup").addEventListener("click",()=>{ if(selectedTeam===null) return; startCup(); showCup(); });
+$("cupPlay").addEventListener("click",()=>{
+  if(cup.over){ startCup(); showCup(); }      // nova copa com o mesmo time: mostra o sorteio
+  else { setupMatch(); closeMenu(); }
+});
+$("cupQuit").addEventListener("click",abandonCup);
+$("resume").addEventListener("click",closeMenu);
+$("pauseQuit").addEventListener("click",abandonCup);
+addEventListener("keydown",(e)=>{
+  if(e.code!=="Escape"||presenting()||!matchLive) return;
+  if(paused) closeMenu(); else showPause();
+});
+
 // ---------- controles desktop ----------
 let yaw=0,pitch=-0.35,dragLook=false,lx=0,ly=0;
 const presenting=()=>renderer.xr.isPresenting;
+
+// teclado: WASD / setas movem, Q/E descem/sobem, Shift corre
+const keys=new Set();
+addEventListener("keydown",(e)=>{
+  if(e.target.closest&&e.target.closest("input,textarea")) return;
+  keys.add(e.code);
+  if(e.code.startsWith("Arrow")||e.code==="Space") e.preventDefault(); // não rolar a página
+});
+addEventListener("keyup",(e)=>keys.delete(e.code));
+addEventListener("blur",()=>keys.clear());
+function updateKeyboardMove(dt){
+  if(paused) return;
+  let f=0,s=0,u=0;
+  if(keys.has("KeyW")||keys.has("ArrowUp"))    f+=1;
+  if(keys.has("KeyS")||keys.has("ArrowDown"))  f-=1;
+  if(keys.has("KeyD")||keys.has("ArrowRight")) s+=1;
+  if(keys.has("KeyA")||keys.has("ArrowLeft"))  s-=1;
+  if(keys.has("KeyE")) u+=1;
+  if(keys.has("KeyQ")) u-=1;
+  if(!f&&!s&&!u) return;
+  const speed=(keys.has("ShiftLeft")||keys.has("ShiftRight")?2.6:1.3)*dt;
+  // direção baseada só no giro horizontal (olhar pra baixo não te afunda no chão)
+  const fx=-Math.sin(yaw), fz=-Math.cos(yaw);
+  const len=Math.hypot(f,s)||1;
+  rig.position.x+=(fx*f-fz*s)/len*speed*(f||s?1:0);
+  rig.position.z+=(fz*f+fx*s)/len*speed*(f||s?1:0);
+  rig.position.y=Math.max(-1.2,Math.min(1.5,rig.position.y+u*speed*0.8));
+}
 function mouseFieldPoint(e){
   const ndc=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
   raycaster.setFromCamera(ndc,camera);
@@ -674,17 +1343,28 @@ function mouseFieldPoint(e){
   const local=world.worldToLocal(hit.clone());
   return new THREE.Vector2(local.x,local.z);
 }
+// scroll do mouse = zoom (muda o campo de visão, suavizado no loop)
+let targetFov=70;
+addEventListener("wheel",(e)=>{
+  if(presenting()||paused) return;
+  e.preventDefault();
+  targetFov=Math.max(25,Math.min(95,targetFov*Math.exp(e.deltaY*0.0012)));
+},{passive:false});
+// bloqueia o menu do botão direito do navegador no jogo inteiro
+addEventListener("contextmenu",(e)=>e.preventDefault());
 addEventListener("pointerdown",(e)=>{
-  if(presenting()||e.target.closest("#diag,#scorebar")) return;
-  const p=mouseFieldPoint(e);
-  startAim(p);
+  if(presenting()||paused||e.target.closest("#menu,#scorebar")) return;
+  // botão direito: sempre só gira a câmera (nunca pega um botão pra chutar)
+  if(e.button!==2) startAim(mouseFieldPoint(e));
   if(!selected){ dragLook=true; lx=e.clientX; ly=e.clientY; }
 });
 addEventListener("pointermove",(e)=>{
   if(presenting()) return;
   if(selected){ moveAim(mouseFieldPoint(e)); return; }
   if(dragLook){
-    yaw-=(e.clientX-lx)*0.004; pitch=Math.max(-1.2,Math.min(0.4,pitch-(e.clientY-ly)*0.004));
+    // "agarrar o campo": o mundo acompanha o mouse, então a câmera vira pro lado oposto do arraste
+    const sens=0.004*camera.fov/70;   // com zoom, o arraste fica mais fino
+    yaw+=(e.clientX-lx)*sens; pitch=Math.max(-1.2,Math.min(0.4,pitch+(e.clientY-ly)*sens));
     lx=e.clientX; ly=e.clientY;
   }
 });
@@ -692,20 +1372,37 @@ addEventListener("pointerup",()=>{ if(!presenting()){ releaseAim(); dragLook=fal
 
 // ---------- entrar em VR ----------
 window.__enterVR=async()=>{
+  if(!matchLive&&(!cup||cup.over)&&selectedTeam===null) return;   // sem time escolhido não há o que jogar
   try{
     const session=await navigator.xr.requestSession("immersive-vr",{optionalFeatures:["local-floor","bounded-floor"]});
     await renderer.xr.setSession(session);
     rig.position.set(0,0,0); rig.quaternion.set(0,0,0,1);
     needCalib=true; calibFrames=0;
-    window.__log&&window.__log("ok","Sessão imersiva iniciada — bom jogo!");
-  }catch(err){ window.__log&&window.__log("bad","Falha ao entrar: "+err.message); }
+    // dentro do headset não há menu: entra direto no jogo da vez (ou continua o que estava pausado)
+    if(!matchLive){
+      if(!cup||cup.over) startCup();
+      setupMatch();
+    }
+    closeMenu();
+    session.addEventListener("end",()=>{
+      // saiu da VR: volta a câmera de PC e mostra a tela certa
+      rig.position.set(0,0,0); rig.quaternion.set(0,0,0,1);
+      if(matchLive) showPause(); else if(cup) showCup(); else openView("home");
+    });
+  }catch(err){ window.__log&&window.__log("bad","Falha ao entrar na VR: "+err.message); }
 };
 
 // ---------- loop ----------
 const clock=new THREE.Clock();
 renderer.setAnimationLoop(()=>{
   const dt=Math.min(clock.getDelta(),0.05);
-  if(!presenting()) camera.rotation.set(pitch,yaw,0,"YXZ");
+  if(!presenting()){
+    camera.rotation.set(pitch,yaw,0,"YXZ"); updateKeyboardMove(dt);
+    if(Math.abs(camera.fov-targetFov)>0.01){
+      camera.fov+=(targetFov-camera.fov)*Math.min(1,dt*12);
+      camera.updateProjectionMatrix();
+    }
+  }
   else { calibrateOnEntry(); updateLocomotion(dt); }
 
   // mira contínua em VR
@@ -714,28 +1411,38 @@ renderer.setAnimationLoop(()=>{
     if(src){ const p=controllerFieldPoint(src); if(p) moveAim(p); }
   }
 
-  if(state==="sim"){
-    const sub=4, sdt=dt/sub;
-    for(let s=0;s<sub;s++) physStep(sdt);
-    // gol no meio da jogada encerra na hora
-    if(checkGoal()) { endSimTurn(); }
+  if(paused){ /* menu aberto: o tempo do jogo para */ }
+  else if(state==="sim"){
+    physAcc+=dt; let n=0, goal=false;
+    while(physAcc>=PHYS_DT&&n<24){
+      physAcc-=PHYS_DT; n++; physStep(PHYS_DT);
+      if(checkGoal()){ goal=true; break; }   // gol no meio da jogada encerra na hora
+    }
+    if(goal) endSimTurn();
     else if(allStopped()) endSimTurn();
   } else if(state==="ai"){
     aiTimer-=dt;
-    if(aiTimer<=0) aiShoot();
+    if(aiTimer<=0){
+      if(DIFFICULTY[difficulty].mode==="sim"){
+        if(!aiJob) startAiJob();
+        processAiJob();          // fatia o cálculo; ao concluir, executa o chute
+      } else aiShoot();
+    }
   }
 
-  // sincroniza meshes
-  for(const d of discs){
+  // sincroniza meshes (congela durante o "pensamento" da IA: as simulações mexem nas posições)
+  if(!aiJob) for(const d of discs){
     d.group.position.set(d.pos.x,TABLE_Y,d.pos.y);
   }
-  // highlight dos botões selecionáveis
+  // halo pulsando nos botões que você pode jogar
+  const myTurn=state==="player"&&!paused&&matchLive;
+  const pulse=0.5+0.25*Math.sin(performance.now()*0.005);
   for(const d of playerDiscs){
-    const on=(state==="player");
-    d.body.material.emissive=new THREE.Color(on?0x4a3a00:0x000000);
-    if(d===selected) d.body.material.emissive=new THREE.Color(0x8a6a00);
+    d.halo.visible=myTurn;
+    d.halo.material.opacity=d===selected?1:pulse;
   }
-  board.lookAt(camera.getWorldPosition(new THREE.Vector3()));
+  board.visible=presenting();   // no PC o placar é o da tela
+  if(board.visible) board.lookAt(camera.getWorldPosition(new THREE.Vector3()));
   renderer.render(scene,camera);
 });
 
