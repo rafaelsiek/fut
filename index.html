@@ -87,7 +87,16 @@
     background:rgba(143,174,147,.12); border:1px solid rgba(143,174,147,.38); }
   .secondary:disabled { opacity:.4; cursor:default; }
   .link { font-size:12px; padding:8px 10px; color:var(--muted); background:transparent; text-decoration:underline; }
-  .vrbtn { display:none; } body.has-vr .vrbtn { display:block; }
+  .vrbtn { display:none; }
+  /* com headset detectado, VR é a ação principal; jogar na tela plana vira a opção secundária */
+  body.has-vr .vrbtn { display:block; order:-1; font-size:15px; padding:15px 20px;
+    color:#08230f; background:var(--gold); border:0; }
+  body.has-vr .vrbtn:disabled { background:rgba(143,174,147,.25); color:var(--muted); opacity:1; }
+  body.has-vr .actions.row .vrbtn { flex:1 1 220px; }
+  body.has-vr .flat { flex:0 1 auto; font-size:13.5px; padding:13px 20px; color:var(--ink);
+    background:rgba(143,174,147,.12); border:1px solid rgba(143,174,147,.38); }
+  body.has-vr .flat::after { content:" na tela plana (sem VR)"; }
+  body.has-vr .flat:disabled { display:none; }
 
   .next { display:flex; align-items:center; flex-wrap:wrap; gap:10px;
     font-size:18px; font-weight:700; margin-bottom:8px; }
@@ -123,7 +132,11 @@
   #log .ok::before{content:"✔ ";} #log .bad::before{content:"✖ ";}
 
   #pausehint { position:absolute; left:18px; bottom:16px; font-size:11px; letter-spacing:.12em;
-    text-transform:uppercase; color:var(--muted); opacity:.75; }
+    text-transform:uppercase; color:var(--muted); padding:9px 14px;
+    background:rgba(5,12,6,.75); border:1px solid var(--hair); }
+  #pausehint:hover { color:var(--ink); }
+  /* jogando na tela plana com um headset disponível: atalho pra entrar na VR sem perder a partida */
+  #toVR { position:absolute; right:18px; bottom:16px; order:0; font-size:13px; padding:12px 18px; }
   #power { position:absolute; left:50%; bottom:28px; transform:translateX(-50%);
     display:flex; align-items:center; gap:12px; padding:10px 16px;
     background:rgba(5,12,6,.85); border:1px solid rgba(242,246,240,.15); border-radius:999px; }
@@ -141,7 +154,8 @@
   </div>
   <div id="stage" class="hidden"></div>
   <div id="turn" class="hidden"></div>
-  <div id="pausehint" class="hidden">Esc — pausar</div>
+  <button id="pausehint" class="hidden">Pausar (Esc)</button>
+  <button id="toVR" class="vrbtn hidden">Entrar em VR</button>
   <div id="power" class="hidden">
     <span class="lbl">Força</span>
     <div class="track"><div class="fill" id="powerFill"></div></div>
@@ -170,8 +184,8 @@
         <p class="hint" id="lvlHint"></p>
 
         <div class="actions">
-          <button class="primary" id="startCup" disabled>Escolha um time para começar</button>
-          <button class="secondary vrbtn" id="startCupVR" disabled>Começar em VR</button>
+          <button class="primary flat" id="startCup" disabled>Escolha um time para começar</button>
+          <button class="secondary vrbtn" id="startCupVR" disabled>Escolha um time para começar</button>
         </div>
 
         <div id="help">
@@ -189,7 +203,7 @@
         <div class="next" id="cupNext"></div>
         <p class="meta" id="cupMeta"></p>
         <div class="actions row">
-          <button class="primary" id="cupPlay">Jogar</button>
+          <button class="primary flat" id="cupPlay">Jogar</button>
           <button class="secondary vrbtn" id="cupPlayVR">Jogar em VR</button>
           <button class="link" id="cupQuit">Trocar de time</button>
         </div>
@@ -202,7 +216,7 @@
         <h2 class="headline" id="pauseHeadline"></h2>
         <p class="meta" id="pauseMeta"></p>
         <div class="actions row">
-          <button class="primary" id="resume">Continuar</button>
+          <button class="primary flat" id="resume">Continuar</button>
           <button class="secondary vrbtn" id="resumeVR">Continuar em VR</button>
           <button class="link" id="pauseQuit">Abandonar a copa</button>
         </div>
@@ -1129,7 +1143,7 @@ function calibrateOnEntry(){
 
 // ---------- interface: início, copa e pausa ----------
 const $=id=>document.getElementById(id);
-const menuEl=$("menu"), cardEl=$("card"), pauseHint=$("pausehint");
+const menuEl=$("menu"), cardEl=$("card"), pauseHint=$("pausehint"), toVR=$("toVR");
 const scorebarEl=$("scorebar"), stageEl=$("stage");
 const VIEWS={home:$("viewHome"),cup:$("viewCup"),pause:$("viewPause")};
 const chipBg=kit=>`radial-gradient(circle,${css(kit.body)} 0 26%,${css(kit.ring)} 30% 54%,${css(kit.body)} 58%)`;
@@ -1152,6 +1166,7 @@ function selectTeam(i){
   teamGrid.querySelectorAll(".tbtn").forEach(b=>b.classList.toggle("on",+b.dataset.i===i));
   $("startCup").disabled=false; $("startCupVR").disabled=false;
   $("startCup").textContent="Começar a copa com "+TEAMS[i].name;
+  $("startCupVR").textContent="Começar em VR com "+TEAMS[i].name;
   applyKit(playerDiscs,homeKit(TEAMS[i]));   // já veste os botões na mesa ao fundo
   remember("team",TEAMS[i].abbr);
 }
@@ -1174,13 +1189,14 @@ function openView(v){
   for(const k in VIEWS) VIEWS[k].classList.toggle("on",k===v);
   cardEl.classList.toggle("wide",v==="cup");
   menuEl.classList.remove("hidden"); menuEl.scrollTop=0;
-  for(const el of [scorebarEl,stageEl,turnEl,pauseHint]) el.classList.add("hidden");
+  for(const el of [scorebarEl,stageEl,turnEl,pauseHint,toVR]) el.classList.add("hidden");
 }
 function closeMenu(){
   paused=false;
   menuEl.classList.add("hidden");
   for(const el of [scorebarEl,stageEl,turnEl]) el.classList.remove("hidden");
   pauseHint.classList.toggle("hidden",presenting());
+  toVR.classList.toggle("hidden",presenting());
 }
 
 // prepara a partida da fase atual: adversário, uniformes, meta de gols e nível da IA
@@ -1298,6 +1314,7 @@ $("cupPlay").addEventListener("click",()=>{
 });
 $("cupQuit").addEventListener("click",abandonCup);
 $("resume").addEventListener("click",closeMenu);
+pauseHint.addEventListener("click",()=>{ if(matchLive&&!paused) showPause(); });   // pausa sem teclado (Quest, celular)
 $("pauseQuit").addEventListener("click",abandonCup);
 addEventListener("keydown",(e)=>{
   if(e.code!=="Escape"||presenting()||!matchLive) return;
@@ -1353,7 +1370,7 @@ addEventListener("wheel",(e)=>{
 // bloqueia o menu do botão direito do navegador no jogo inteiro
 addEventListener("contextmenu",(e)=>e.preventDefault());
 addEventListener("pointerdown",(e)=>{
-  if(presenting()||paused||e.target.closest("#menu,#scorebar")) return;
+  if(presenting()||paused||e.target.closest("#menu,#scorebar,button")) return;
   // botão direito: sempre só gira a câmera (nunca pega um botão pra chutar)
   if(e.button!==2) startAim(mouseFieldPoint(e));
   if(!selected){ dragLook=true; lx=e.clientX; ly=e.clientY; }
